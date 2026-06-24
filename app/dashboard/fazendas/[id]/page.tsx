@@ -42,6 +42,38 @@ const { data: fazenda, error } = await supabase
       </main>
     );
   }
+  const { data: intervencoes } =
+  await supabase
+    .from("intervencoes")
+    .select("*")
+    .eq("fazenda_id", id)
+    .order("data_intervencao", {
+      ascending: false,
+    });
+    const timeline = [
+  ...(projetos || [])
+  .filter(
+    (p) =>
+      p.alto_vigor ||
+      p.medio_vigor ||
+      p.baixo_vigor
+  )
+  .map((p) => ({
+    tipo: "monitoramento",
+    data: p.data_voo,
+    item: p,
+  })),
+
+  ...(intervencoes || []).map((i) => ({
+    tipo: "intervencao",
+    data: i.data_intervencao,
+    item: i,
+  })),
+].sort(
+  (a, b) =>
+    new Date(b.data).getTime() -
+    new Date(a.data).getTime()
+);
 
   const projetosValidos =
     (projetos || []).filter(
@@ -486,6 +518,196 @@ const { data: fazenda, error } = await supabase
 
       </div>
 
+      <div className="bg-[#16253D] p-6 rounded-xl mt-8">
+
+  <div className="flex justify-between items-center mb-6">
+
+    <h2 className="text-2xl font-bold">
+      🧪 Intervenções Realizadas
+    </h2>
+
+    <Link
+      href="/dashboard/intervencoes/novo"
+      className="
+        bg-green-700
+        px-4
+        py-2
+        rounded-lg
+        font-bold
+      "
+    >
+      + Nova Intervenção
+    </Link>
+
+  </div>
+
+  {intervencoes?.length ? (
+
+    <div className="space-y-4">
+
+      {intervencoes.map((item) => (
+
+        <div
+          key={item.id}
+          className="
+            bg-[#0E1B2F]
+            p-4
+            rounded-xl
+          "
+        >
+
+          <h3 className="font-bold text-xl">
+            {item.tipo}
+          </h3>
+
+          <p>
+            📅 {item.data_intervencao}
+          </p>
+
+          <p>
+            🧪 Produto:
+            {" "}
+            {item.produto || "-"}
+          </p>
+
+          <p>
+            📏 Dose:
+            {" "}
+            {item.dose || "-"}
+          </p>
+
+          <p>
+            👤 Responsável:
+            {" "}
+            {item.responsavel || "-"}
+          </p>
+
+          {item.observacoes && (
+
+            <p className="mt-2 text-slate-300">
+              {item.observacoes}
+            </p>
+
+          )}
+
+        </div>
+
+      ))}
+
+    </div>
+
+  ) : (
+
+    <p className="text-slate-400">
+      Nenhuma intervenção registrada.
+    </p>
+
+  )}
+
+</div>
+<div className="bg-[#16253D] p-6 rounded-xl mt-8">
+
+  <h2 className="text-2xl font-bold mb-6">
+    📅 Timeline Agronômica
+  </h2>
+
+  <div className="space-y-4">
+
+    {timeline.map((evento, index) => (
+
+      <div
+        key={index}
+        className="
+          bg-[#0E1B2F]
+          p-4
+          rounded-xl
+          border-l-4
+          border-green-500
+        "
+      >
+
+        {evento.tipo === "monitoramento" ? (
+
+          <>
+
+            <h3 className="text-xl font-bold">
+              🚁 Monitoramento
+            </h3>
+
+            <p className="text-slate-400">
+              {evento.data}
+            </p>
+
+            <div className="mt-2">
+
+              <p>
+                🟢 Alto vigor:
+                {" "}
+                {evento.item.alto_vigor || 0}%
+              </p>
+
+              <p>
+                🟡 Médio vigor:
+                {" "}
+                {evento.item.medio_vigor || 0}%
+              </p>
+
+              <p>
+                🔴 Baixo vigor:
+                {" "}
+                {evento.item.baixo_vigor || 0}%
+              </p>
+
+            </div>
+
+          </>
+
+        ) : (
+
+          <>
+
+            <h3 className="text-xl font-bold">
+              🧪 {evento.item.tipo}
+            </h3>
+
+            <p className="text-slate-400">
+              {evento.data}
+            </p>
+
+            <div className="mt-2">
+
+              <p>
+                Produto:
+                {" "}
+                {evento.item.produto || "-"}
+              </p>
+
+              <p>
+                Dose:
+                {" "}
+                {evento.item.dose || "-"}
+              </p>
+
+              <p>
+                Responsável:
+                {" "}
+                {evento.item.responsavel || "-"}
+              </p>
+
+            </div>
+
+          </>
+
+        )}
+
+      </div>
+
+    ))}
+
+  </div>
+
+
+</div>
     </main>
   );
 }

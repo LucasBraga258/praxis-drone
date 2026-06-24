@@ -71,6 +71,12 @@ export default async function DashboardLayout({
               👨‍🌾 Agrônomos
             </Link>
 
+            <Link href="/dashboard/intervencoes"
+            className="block p-3 rounded-xl hover:bg-[#16253D]"
+            >
+              🧪 Intervenções
+            </Link>
+
             <Link
               href="/dashboard/empresas"
               className="block p-3 rounded-xl hover:bg-[#16253D]"

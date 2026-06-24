@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../../../lib/supabase";
@@ -154,29 +155,80 @@ setFrequencia(
   return (
     <main className="min-h-screen bg-[#07111F] text-white p-8">
 
-      <h1 className="text-4xl font-bold mb-8">
-        Editar Fazenda
-      </h1>
+      <div className="flex gap-3 mb-6">
 
-     <div className="max-w-2xl space-y-4">
+  <Link
+    href="/dashboard"
+    className="
+      bg-[#16253D]
+      px-4
+      py-2
+      rounded-xl
+      hover:bg-[#1B2D4A]
+    "
+  >
+    🏠 Dashboard
+  </Link>
+
+  <button
+    onClick={() => router.back()}
+    className="
+      bg-[#16253D]
+      px-4
+      py-2
+      rounded-xl
+      hover:bg-[#1B2D4A]
+    "
+  >
+    ← Voltar
+  </button>
+
+</div>
+
+<h1 className="text-4xl font-bold mb-8">
+  Editar Fazenda
+</h1>
+
+  <div>
+  <label className="block mb-2 text-slate-300">
+    Nome da Fazenda
+  </label>
 
   <input
     value={nome}
     onChange={(e) => setNome(e.target.value)}
     className="w-full p-3 rounded-xl bg-[#16253D]"
   />
+</div>
+
+  <div>
+  <label className="block mb-2 text-slate-300">
+    Cidade
+  </label>
 
   <input
     value={cidade}
     onChange={(e) => setCidade(e.target.value)}
     className="w-full p-3 rounded-xl bg-[#16253D]"
   />
+</div>
+
+  <div>
+  <label className="block mb-2 text-slate-300">
+    Estado
+  </label>
 
   <input
     value={estado}
     onChange={(e) => setEstado(e.target.value)}
     className="w-full p-3 rounded-xl bg-[#16253D]"
   />
+</div>
+
+ <div>
+  <label className="block mb-2 text-slate-300">
+    Área (ha)
+  </label>
 
   <input
     type="number"
@@ -184,6 +236,7 @@ setFrequencia(
     onChange={(e) => setAreaHa(e.target.value)}
     className="w-full p-3 rounded-xl bg-[#16253D]"
   />
+</div>
 
   {/* CLIENTE */}
 
@@ -243,6 +296,54 @@ setFrequencia(
       </option>
     ))}
   </select>
+  <div>
+
+  <label className="block mb-2 text-slate-300">
+    Cultura
+  </label>
+  <div>
+
+  <label className="block mb-2 text-slate-300">
+    Frequência de Monitoramento (dias)
+  </label>
+
+  <input
+    type="number"
+    value={frequencia}
+    onChange={(e) =>
+      setFrequencia(e.target.value)
+    }
+    className="w-full p-3 rounded-xl bg-[#16253D]"
+  />
+
+</div>
+
+  <input
+    value={cultura}
+    onChange={(e) =>
+      setCultura(e.target.value)
+    }
+    placeholder="Ex: Cana, Soja, Milho"
+    className="w-full p-3 rounded-xl bg-[#16253D]"
+  />
+
+</div>
+
+  <div className="flex gap-3">
+
+  <button
+    type="button"
+    onClick={() => router.back()}
+    className="
+      bg-slate-700
+      px-6
+      py-3
+      rounded-xl
+      font-bold
+    "
+  >
+    Cancelar
+  </button>
 
   <button
     onClick={salvar}
@@ -255,10 +356,14 @@ setFrequencia(
       font-bold
     "
   >
-    Salvar
+    {salvando
+      ? "Salvando..."
+      : "Salvar"}
   </button>
 
 </div>
+
+
     </main>
   );
 }
