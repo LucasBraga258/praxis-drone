@@ -19,34 +19,7 @@ export default async function DiagnosticoPage({
     `)
     .eq("id", id)
     .single();
-
-    const { data: arquivos } = await supabase
-  .from("arquivos_projeto")
-  .select("*")
-  .eq("projeto_id", id);
-
-  const quantidadeFotos =
-  arquivos?.filter(
-    (a) => a.tipo === "foto"
-  ).length || 0;
-
-const tamanhoTotal =
-  arquivos
-    ?.filter((a) => a.tipo === "foto")
-    .reduce(
-      (acc, a) => acc + Number(a.tamanho || 0),
-      0
-    ) || 0;
-
-const ultimoUpload =
-  arquivos?.length
-    ? arquivos
-        .sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() -
-            new Date(a.created_at).getTime()
-        )[0]
-    : null;
+    
 
   if (!projeto) {
     return (
