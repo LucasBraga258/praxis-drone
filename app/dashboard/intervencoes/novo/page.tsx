@@ -8,8 +8,10 @@ export default function NovaIntervencaoPage() {
   const router = useRouter();
 
   const [fazendas, setFazendas] = useState<any[]>([]);
+  const [pragas, setPragas] = useState<any[]>([]);
 
   const [fazendaId, setFazendaId] = useState("");
+  const [pragaId, setPragaId] = useState("");
   const [dataIntervencao, setDataIntervencao] = useState("");
   const [tipo, setTipo] = useState("");
   const [produto, setProduto] = useState("");
@@ -30,6 +32,14 @@ const [empresas, setEmpresas] = useState<any[]>([]);
         .order("nome");
 
       setFazendas(data || []);
+
+      const { data: pragasData } = await supabase
+  .from("pragas")
+  .select("*")
+  .order("nome");
+
+setPragas(pragasData || []);
+
       const { data: empresasData } =
   await supabase
     .from("empresas_parceiras")
@@ -47,6 +57,9 @@ setEmpresas(empresasData || []);
       .from("intervencoes")
       .insert({
   fazenda_id: Number(fazendaId),
+  praga_id: pragaId
+  ? Number(pragaId)
+  : null,
 
   data_intervencao: dataIntervencao,
 
@@ -116,6 +129,37 @@ setEmpresas(empresasData || []);
             </option>
           ))}
         </select>
+
+        <select
+  value={pragaId}
+  onChange={(e) =>
+    setPragaId(e.target.value)
+  }
+  className="w-full p-3 rounded-xl bg-[#16253D]"
+>
+
+  <option value="">
+    Selecione a Praga
+  </option>
+
+  {pragas
+    .filter(
+      (p) =>
+        !fazendaId ||
+        p.fazenda_id == fazendaId
+    )
+    .map((praga) => (
+
+      <option
+        key={praga.id}
+        value={praga.id}
+      >
+        {praga.nome}
+      </option>
+
+    ))}
+
+</select>
 
         <input
           type="date"

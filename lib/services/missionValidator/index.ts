@@ -1,0 +1,1 @@
+export { validarFotos } from "./validador";

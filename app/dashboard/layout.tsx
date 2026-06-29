@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import { Toaster } from "sonner";
 
 export default async function DashboardLayout({
   children,
@@ -178,8 +179,14 @@ export default async function DashboardLayout({
           <main>
 
             {children}
+            
 
           </main>
+
+          <Toaster
+  position="top-right"
+  richColors
+/>
 
         </div>
 

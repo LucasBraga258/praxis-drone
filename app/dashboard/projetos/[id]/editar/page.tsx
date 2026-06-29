@@ -32,6 +32,14 @@ const [baixoVigor, setBaixoVigor] = useState("");
 
 const [elevacaoMin, setElevacaoMin] = useState("");
 const [elevacaoMax, setElevacaoMax] = useState("");
+const [piloto, setPiloto] = useState("");
+const [drone, setDrone] = useState("");
+const [camera, setCamera] = useState("");
+
+const [alturaVoo, setAlturaVoo] = useState("");
+
+const [sobreposicaoFrontal, setSobreposicaoFrontal] = useState("");
+const [sobreposicaoLateral, setSobreposicaoLateral] = useState("");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -54,20 +62,32 @@ const [elevacaoMax, setElevacaoMax] = useState("");
       setWebgis(data.webgis_url || "");
       setObservacoes(data.observacoes || "");
       setCultura(data.cultura || "");
-setMunicipio(data.municipio || "");
-setUf(data.uf || "");
+      setMunicipio(data.municipio || "");
+      setUf(data.uf || "");
 
-setGsd(data.gsd?.toString() || "");
-
-setLatitude(data.latitude?.toString() || "");
-setLongitude(data.longitude?.toString() || "");
-
-setAltoVigor(data.alto_vigor?.toString() || "");
-setMedioVigor(data.medio_vigor?.toString() || "");
-setBaixoVigor(data.baixo_vigor?.toString() || "");
-
-setElevacaoMin(data.elevacao_min?.toString() || "");
-setElevacaoMax(data.elevacao_max?.toString() || "");
+      setGsd(data.gsd?.toString() || "");
+      setLatitude(data.latitude?.toString() || "");
+      setLongitude(data.longitude?.toString() || "");
+      
+      setAltoVigor(data.alto_vigor?.toString() || "");
+      setMedioVigor(data.medio_vigor?.toString() || "");
+      setBaixoVigor(data.baixo_vigor?.toString() || "");
+      
+      setElevacaoMin(data.elevacao_min?.toString() || "");
+      setElevacaoMax(data.elevacao_max?.toString() || "");
+      setPiloto(data.piloto || "");
+      setDrone(data.drone || "");
+      setCamera(data.camera || "");
+      
+      setAlturaVoo(
+        data.altura_voo?.toString() || ""
+      );
+      setSobreposicaoFrontal(
+        data.sobreposicao_frontal?.toString() || ""
+      );
+      setSobreposicaoLateral(
+        data.sobreposicao_lateral?.toString() || ""
+      );
     }
 
     carregar();
@@ -100,6 +120,25 @@ setElevacaoMax(data.elevacao_max?.toString() || "");
 
   elevacao_min: elevacaoMin ? Number(elevacaoMin) : null,
   elevacao_max: elevacaoMax ? Number(elevacaoMax) : null,
+
+  piloto,
+  drone,
+  camera,
+
+altura_voo:
+  alturaVoo
+    ? Number(alturaVoo)
+    : null,
+
+sobreposicao_frontal:
+  sobreposicaoFrontal
+    ? Number(sobreposicaoFrontal)
+    : null,
+
+sobreposicao_lateral:
+  sobreposicaoLateral
+    ? Number(sobreposicaoLateral)
+    : null,
 })
       .eq("id", id);
 
@@ -338,9 +377,11 @@ setElevacaoMax(data.elevacao_max?.toString() || "");
       onChange={(e) => setElevacaoMax(e.target.value)}
       className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
     />
+    
   </div>
 
 </div>
+
         <div>
           <label className="block mb-2 font-semibold">
             Observações Técnicas

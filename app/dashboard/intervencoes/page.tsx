@@ -4,23 +4,23 @@ import { supabase } from "../../../lib/supabase";
 export default async function IntervencoesPage() {
 
   const { data: intervencoes } =
-    await supabase
-      .from("intervencoes")
-      .select(`
-        *,
-        fazendas (
-          id,
-          nome
-        ),
-        empresas_parceiras (
-          id,
-          nome
-        )
-      `)
-      .order(
-        "data_intervencao",
-        { ascending: false }
-      );
+  await supabase
+    .from("intervencoes")
+    .select(`
+      *,
+      fazendas (
+        id,
+        nome
+      ),
+      empresas_parceiras (
+        id,
+        nome
+      )
+    `)
+    .order(
+      "data_intervencao",
+      { ascending: false }
+    );
 
   return (
     <main className="min-h-screen bg-[#07111F] text-white p-8">

@@ -2,110 +2,122 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
+import { useDropzone } from "react-dropzone";
+import { uploadFotosProjeto }
+from "../../../../../lib/services/upload";
 import { supabase } from "../../../../../lib/supabase";
+import { toast } from "sonner";
+import { validarFotos }
+from "../../../../../lib/services/missionValidator";
+import ValidacaoMissao
+from "@/app/components/ValidacaoMissao";
 
 export default function UploadPage() {
   const params = useParams();
   const projetoId = params.id as string;
 
-  const [pdf, setPdf] = useState<File | null>(null);
-  const [orto, setOrto] = useState<File | null>(null);
-  const [ndvi, setNdvi] = useState<File | null>(null);
-  const [elevacao, setElevacao] = useState<File | null>(null);
-
   const [enviando, setEnviando] = useState(false);
   const [analisando, setAnalisando] = useState(false);
+  const [resultadoValidacao, setResultadoValidacao] =
+  useState<any>(null);
 
-  async function uploadArquivo(
-    arquivo: File,
-    bucket: string,
-    pasta: string
-  ) {
-    const nomeArquivo = `${Date.now()}-${arquivo.name}`;
+  const [arquivos, setArquivos] = useState<File[]>([]);
+  const { getRootProps, getInputProps, isDragActive } =
+  useDropzone({
+    multiple: true,
 
-    const caminho = `${pasta}/${nomeArquivo}`;
+    accept: {
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/tiff": [".tif", ".tiff"],
+    },
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(caminho, arquivo);
+   onDrop: async (acceptedFiles) => {
 
-    if (error) throw error;
+  setArquivos(acceptedFiles);
 
-    const { data } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(caminho);
+  const resultado =
+    await validarFotos(acceptedFiles);
 
-    return data.publicUrl;
-  }
+  console.log(resultado);
+
+  setResultadoValidacao(resultado);
+
+},
+  });
+  const [progresso, setProgresso] = useState(0);
+
+const [arquivoAtual, setArquivoAtual] =
+  useState("");
+
+const [totalEnviado, setTotalEnviado] =
+  useState(0);
+
+const tamanhoTotal = arquivos.reduce(
+  (acc, file) => acc + file.size,
+  0
+);
+
 
   async function enviarArquivos() {
-    try {
-      setEnviando(true);
 
-      let pdfUrl = null;
-      let ortoUrl = null;
-      let ndviUrl = null;
-      let elevacaoUrl = null;
-
-      if (pdf) {
-        pdfUrl = await uploadArquivo(
-          pdf,
-          "relatorios",
-          projetoId
-        );
-      }
-
-      if (orto) {
-        ortoUrl = await uploadArquivo(
-          orto,
-          "imagens",
-          projetoId
-        );
-      }
-
-      if (ndvi) {
-        ndviUrl = await uploadArquivo(
-          ndvi,
-          "imagens",
-          projetoId
-        );
-      }
-
-      if (elevacao) {
-        elevacaoUrl = await uploadArquivo(
-          elevacao,
-          "imagens",
-          projetoId
-        );
-      }
-
-      const { error } = await supabase
-        .from("projetos")
-        .update({
-          pdf_url: pdfUrl,
-          ortomosaico_img_url: ortoUrl,
-          ndvi_img_url: ndviUrl,
-          elevacao_img_url: elevacaoUrl,
-        })
-        .eq("id", projetoId);
-
-      if (error) {
-        console.error(error);
-        alert("Erro ao salvar URLs");
-        return;
-      }
-
-      alert("Arquivos enviados com sucesso!");
-    } catch (error: any) {
-      console.error(error);
-
-      alert(
-        JSON.stringify(error, null, 2)
-      );
-    } finally {
-      setEnviando(false);
-    }
+  if (!arquivos.length) {
+    toast.warning("Selecione as fotos primeiro.");
+    return;
   }
+
+  try {
+
+    setEnviando(true);
+
+    await uploadFotosProjeto(
+
+  Number(projetoId),
+
+  arquivos,
+
+  (progress) => {
+
+    setProgresso(
+      progress.percentual
+    );
+
+    setArquivoAtual(
+      progress.arquivoAtual
+    );
+
+    setTotalEnviado(
+      progress.enviados
+    );
+
+  }
+
+);
+
+    toast.success(
+`${arquivos.length} fotos enviadas com sucesso!`
+);
+
+    setArquivos([]);
+
+  } catch (error: any) {
+
+  console.error(error);
+
+  toast.error(
+    error.message ??
+    "Erro ao enviar arquivos."
+  );
+
+
+
+  } finally {
+
+    setEnviando(false);
+
+  }
+
+
+}
 
   async function analisarProjeto() {
     try {
@@ -146,85 +158,156 @@ export default function UploadPage() {
 
       <div className="grid gap-6 max-w-4xl">
 
-        <div className="bg-[#16253D] p-6 rounded-xl">
-          <h2 className="text-xl font-bold mb-3">
-            PDF DroneDeploy
-          </h2>
+        <div className="bg-[#16253D] rounded-xl p-8">
 
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={(e) =>
-              setPdf(e.target.files?.[0] || null)
-            }
-          />
+  <div
+    {...getRootProps()}
+    className={`
+      border-2
+      border-dashed
+      rounded-xl
+      p-16
+      text-center
+      cursor-pointer
+      transition
 
-          {pdf && (
-            <p className="mt-3 text-green-400">
-              {pdf.name}
-            </p>
-          )}
+      ${
+        isDragActive
+          ? "border-green-500 bg-green-900/20"
+          : "border-slate-600"
+      }
+    `}
+  >
+
+    <input {...getInputProps()} />
+
+    <h2 className="text-3xl font-bold mb-4">
+      📷 Enviar Fotos do Voo
+    </h2>
+
+    <p className="text-slate-400">
+
+      Arraste as fotos aqui
+
+      <br />
+
+      ou
+
+      <br />
+
+      clique para selecionar
+
+    </p>
+
+  </div>
+
+</div>
+
+{enviando && (
+
+  <div className="bg-[#16253D] rounded-xl p-6">
+
+    <h2 className="text-2xl font-bold mb-4">
+
+      📤 Enviando Fotos
+
+    </h2>
+
+    <div className="w-full bg-[#0F1C30] rounded-full h-5 overflow-hidden">
+
+      <div
+        className="bg-green-500 h-5 transition-all duration-300"
+        style={{
+          width: `${progresso}%`,
+        }}
+      />
+
+    </div>
+
+    <div className="flex justify-between mt-3">
+
+      <p className="text-green-400 font-bold">
+
+        {progresso}%
+
+      </p>
+
+      <p className="text-slate-300">
+
+        {totalEnviado} / {arquivos.length} fotos
+
+      </p>
+
+    </div>
+
+    <p className="mt-4 text-slate-400">
+
+      📷 {arquivoAtual}
+
+    </p>
+
+  </div>
+
+)}
+
+{arquivos.length > 0 && (
+
+  <div className="bg-[#16253D] rounded-xl p-6">
+
+    <h2 className="text-2xl font-bold mb-4">
+
+      Fotos Selecionadas
+
+    </h2>
+
+    <p>
+
+      📷 {arquivos.length} arquivos
+
+    </p>
+
+    <p>
+
+      💾 {(tamanhoTotal / 1024 / 1024).toFixed(2)} MB
+
+    </p>
+
+    <div className="mt-6 max-h-64 overflow-auto">
+
+      {arquivos.slice(0,20).map((arquivo) => (
+
+        <div
+          key={arquivo.name}
+          className="py-2 border-b border-slate-700"
+        >
+
+          {arquivo.name}
+
         </div>
 
-        <div className="bg-[#16253D] p-6 rounded-xl">
-          <h2 className="text-xl font-bold mb-3">
-            Ortomosaico RGB
-          </h2>
+      ))}
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) =>
-              setOrto(e.target.files?.[0] || null)
-            }
-          />
+      {arquivos.length > 20 && (
 
-          {orto && (
-            <p className="mt-3 text-green-400">
-              {orto.name}
-            </p>
-          )}
-        </div>
+        <p className="mt-4 text-slate-400">
 
-        <div className="bg-[#16253D] p-6 rounded-xl">
-          <h2 className="text-xl font-bold mb-3">
-            Mapa NDVI / VARI
-          </h2>
+          ...e mais {arquivos.length-20} arquivos
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) =>
-              setNdvi(e.target.files?.[0] || null)
-            }
-          />
+        </p>
 
-          {ndvi && (
-            <p className="mt-3 text-green-400">
-              {ndvi.name}
-            </p>
-          )}
-        </div>
+      )}
+      
 
-        <div className="bg-[#16253D] p-6 rounded-xl">
-          <h2 className="text-xl font-bold mb-3">
-            Modelo de Elevação
-          </h2>
+    </div>
+{resultadoValidacao && (
+  <ValidacaoMissao
+    resultado={resultadoValidacao}
+  />
+)}
+  </div>
+  
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) =>
-              setElevacao(e.target.files?.[0] || null)
-            }
-          />
-
-          {elevacao && (
-            <p className="mt-3 text-green-400">
-              {elevacao.name}
-            </p>
-          )}
-        </div>
+)}
 
         <div className="flex gap-4">
 

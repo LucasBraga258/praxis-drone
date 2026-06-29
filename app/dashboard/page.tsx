@@ -72,6 +72,20 @@ const { count: empresas } = await supabase
     count: "exact",
     head: true,
   });
+  const { count: pragasAtivas } = await supabase
+  .from("pragas")
+  .select("*", {
+    count: "exact",
+    head: true,
+  })
+  .neq("status", "Resolvida");
+
+const { count: intervencoes } = await supabase
+  .from("intervencoes")
+  .select("*", {
+    count: "exact",
+    head: true,
+  });
 
 const { count: alertasPendentes } = await supabase
   .from("notificacoes")
@@ -257,6 +271,45 @@ const areaMonitorada =
 
   <h2 className="text-4xl font-bold">
     {empresas || 0}
+  </h2>
+</Link>
+
+<Link
+  href="/dashboard/pragas"
+  className="
+    bg-[#16253D]
+    p-6
+    rounded-2xl
+    block
+    hover:bg-[#1B2D4A]
+    transition
+  "
+>
+  <p className="text-slate-300">
+    🐛 Pragas Ativas
+  </p>
+
+  <h2 className="text-4xl font-bold text-yellow-400">
+    {pragasAtivas || 0}
+  </h2>
+</Link>
+<Link
+  href="/dashboard/intervencoes"
+  className="
+    bg-[#16253D]
+    p-6
+    rounded-2xl
+    block
+    hover:bg-[#1B2D4A]
+    transition
+  "
+>
+  <p className="text-slate-300">
+    🧪 Intervenções
+  </p>
+
+  <h2 className="text-4xl font-bold">
+    {intervencoes || 0}
   </h2>
 </Link>
 

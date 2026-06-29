@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabase } from "../../../lib/supabase";
+import MissionHeader from "./MissionHeader";
 
 export default async function ProjetosPage() {
   const { data: projetos } = await supabase
@@ -11,6 +12,7 @@ export default async function ProjetosPage() {
       )
     `)
     .order("id", { ascending: false });
+    
 
   return (
     <main className="min-h-screen bg-[#07111F] text-white p-8">
@@ -29,7 +31,7 @@ export default async function ProjetosPage() {
         </Link>
 
       </div>
-
+<MissionHeader projeto={projeto} />
       <div className="space-y-4">
 
         {projetos?.map((projeto: any) => (

@@ -49,6 +49,31 @@ export default async function AgronomoPage({
         Perfil do Agrônomo
       </p>
 
+      <div className="flex gap-3 mb-8">
+
+  <Link
+    href="/dashboard/agronomos"
+    className="bg-[#16253D] px-4 py-2 rounded-xl"
+  >
+    ← Voltar
+  </Link>
+
+  <Link
+    href={`/dashboard/agronomos/${id}/editar`}
+    className="bg-yellow-600 px-4 py-2 rounded-xl"
+  >
+    ✏️ Editar
+  </Link>
+
+  <Link
+    href={`/dashboard/agronomos/${id}/excluir`}
+    className="bg-red-700 px-4 py-2 rounded-xl"
+  >
+    🗑️ Excluir
+  </Link>
+
+</div>
+
       <div className="grid md:grid-cols-4 gap-4 mb-10">
 
         <div className="bg-[#16253D] p-6 rounded-xl">

@@ -50,6 +50,17 @@ const { data: fazenda, error } = await supabase
     .order("data_intervencao", {
       ascending: false,
     });
+    const { data: pragas } =
+  await supabase
+    .from("pragas")
+    .select("*")
+    .eq("fazenda_id", id)
+    .order(
+      "data_identificacao",
+      {
+        ascending: false,
+      }
+    );
     const timeline = [
   ...(projetos || [])
   .filter(
@@ -525,6 +536,7 @@ const { data: fazenda, error } = await supabase
     <h2 className="text-2xl font-bold">
       🧪 Intervenções Realizadas
     </h2>
+    
 
     <Link
       href="/dashboard/intervencoes/novo"
@@ -600,6 +612,86 @@ const { data: fazenda, error } = await supabase
 
     <p className="text-slate-400">
       Nenhuma intervenção registrada.
+    </p>
+
+  )}
+
+</div>
+
+<div className="bg-[#16253D] p-6 rounded-xl mt-8">
+
+  <div className="flex justify-between items-center mb-6">
+
+    <h2 className="text-2xl font-bold">
+      🐛 Pragas Identificadas
+    </h2>
+
+    <Link
+      href="/dashboard/pragas/novo"
+      className="
+        bg-yellow-700
+        px-4
+        py-2
+        rounded-lg
+        font-bold
+      "
+    >
+      + Nova Praga
+    </Link>
+
+  </div>
+
+  {pragas?.length ? (
+
+    <div className="space-y-4">
+
+      {pragas.map((praga) => (
+
+        <div
+          key={praga.id}
+          className="
+            bg-[#0E1B2F]
+            p-4
+            rounded-xl
+          "
+        >
+
+          <h3 className="font-bold text-xl">
+            🐛 {praga.nome}
+          </h3>
+
+          <p>
+            📅 {praga.data_identificacao}
+          </p>
+
+          <p>
+            📊 Nível:
+            {" "}
+            {praga.nivel_infestacao}
+          </p>
+
+          <p>
+            Status:
+            {" "}
+            {praga.status}
+          </p>
+
+          {praga.observacoes && (
+            <p className="mt-2 text-slate-300">
+              {praga.observacoes}
+            </p>
+          )}
+
+        </div>
+
+      ))}
+
+    </div>
+
+  ) : (
+
+    <p className="text-slate-400">
+      Nenhuma praga registrada.
     </p>
 
   )}

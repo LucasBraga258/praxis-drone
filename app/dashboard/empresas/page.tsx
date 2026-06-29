@@ -30,10 +30,18 @@ export default async function EmpresasPage() {
 
         {empresas?.map((empresa) => (
 
-          <div
-            key={empresa.id}
-            className="bg-[#16253D] p-6 rounded-xl"
-          >
+          <Link
+  key={empresa.id}
+  href={`/dashboard/empresas/${empresa.id}`}
+  className="
+    block
+    bg-[#16253D]
+    p-6
+    rounded-xl
+    hover:bg-[#1B2D4A]
+    transition
+  "
+>
 
             <h2 className="text-2xl font-bold">
               {empresa.nome}
@@ -55,7 +63,7 @@ export default async function EmpresasPage() {
               {empresa.cidade} / {empresa.estado}
             </p>
 
-          </div>
+          </Link>
 
         ))}
 

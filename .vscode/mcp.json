@@ -1,0 +1,9 @@
+{
+	"servers": {
+		"Supabase Praxis": {
+			"url": "https://mcp.supabase.com/mcp?project_ref=oxpgvddyfmistabmyxxe&read_only=true",
+			"type": "http"
+		}
+	},
+	"inputs": []
+}
