@@ -1,26 +1,550 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+/* ============================================================
+   PRAXIS DESIGN SYSTEM
+   Plataforma Premium de Agricultura de Precisão
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* === Brand Colors === */
+  --praxis-green-50:  #f0fdf4;
+  --praxis-green-400: #4ade80;
+  --praxis-green-500: #22c55e;
+  --praxis-green-600: #16a34a;
+  --praxis-green-700: #15803d;
+
+  /* === Background Scale === */
+  --bg-base:    #060f1b;
+  --bg-surface: #0b1828;
+  --bg-card:    #0f2039;
+  --bg-hover:   #142848;
+  --bg-border:  rgba(255,255,255,0.07);
+  --bg-border-hover: rgba(255,255,255,0.14);
+
+  /* === Text Scale === */
+  --text-primary:   #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted:     #475569;
+  --text-accent:    #4ade80;
+
+  /* === Status Colors === */
+  --status-success: #22c55e;
+  --status-warning: #f59e0b;
+  --status-danger:  #ef4444;
+  --status-info:    #3b82f6;
+
+  /* === Gradients === */
+  --gradient-green:  linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  --gradient-blue:   linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  --gradient-amber:  linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  --gradient-red:    linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  --gradient-card:   linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+  --gradient-sidebar: linear-gradient(180deg, #0b1828 0%, #060f1b 100%);
+
+  /* === Shadows === */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.6);
+  --shadow-glow-green: 0 0 20px rgba(34,197,94,0.25);
+  --shadow-glow-blue:  0 0 20px rgba(59,130,246,0.25);
+
+  /* === Radii === */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-2xl: 24px;
+
+  /* === Spacing === */
+  --sidebar-width: 256px;
+  --header-height: 72px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(34, 197, 94, 0.3);
+  color: #fff;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ============================================================
+   TYPOGRAPHY UTILITIES
+   ============================================================ */
+
+.text-gradient-green {
+  background: var(--gradient-green);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-blue {
+  background: var(--gradient-blue);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================================
+   CARD COMPONENTS
+   ============================================================ */
+
+.praxis-card {
+  background: var(--bg-card);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-xl);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.praxis-card:hover {
+  border-color: var(--bg-border-hover);
+}
+
+.praxis-card-glass {
+  background: rgba(15, 32, 57, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-xl);
+}
+
+.praxis-stat-card {
+  background: var(--bg-card);
+  background-image: var(--gradient-card);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.praxis-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+}
+
+.praxis-stat-card:hover {
+  border-color: var(--bg-border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.praxis-sidebar {
+  width: var(--sidebar-width);
+  min-height: 100vh;
+  background: var(--gradient-sidebar);
+  border-right: 1px solid var(--bg-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+  overflow-y: auto;
+}
+
+.praxis-sidebar-logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--bg-border);
+  flex-shrink: 0;
+}
+
+.praxis-sidebar-nav {
+  flex: 1;
+  padding: 16px 12px;
+  overflow-y: auto;
+}
+
+.praxis-nav-section {
+  margin-bottom: 24px;
+}
+
+.praxis-nav-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 8px;
+  margin-bottom: 6px;
+}
+
+.praxis-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+.praxis-nav-link:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+
+.praxis-nav-link.active {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--praxis-green-400);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+.praxis-nav-link svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.praxis-nav-link:hover svg,
+.praxis-nav-link.active svg {
+  opacity: 1;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.praxis-header {
+  height: var(--header-height);
+  background: rgba(6, 15, 27, 0.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--bg-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+/* ============================================================
+   MAIN CONTENT AREA
+   ============================================================ */
+
+.praxis-main {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.praxis-content {
+  flex: 1;
+  padding: 32px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--gradient-green);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13.5px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 13.5px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--bg-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--bg-border-hover);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 13.5px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.btn-ghost:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   BADGES / TAGS
+   ============================================================ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge-green  { background: rgba(34,197,94,0.12);  color: #4ade80; }
+.badge-yellow { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.badge-red    { background: rgba(239,68,68,0.12);  color: #f87171; }
+.badge-blue   { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.badge-gray   { background: rgba(148,163,184,0.1); color: #94a3b8; }
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.3); }
+  50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+.animate-fade-in  { animation: fadeIn 0.4s ease forwards; }
+.animate-slide-in { animation: slideInLeft 0.3s ease forwards; }
+
+.animate-fade-in-delay-1 { animation: fadeIn 0.4s ease 0.05s both; }
+.animate-fade-in-delay-2 { animation: fadeIn 0.4s ease 0.1s both; }
+.animate-fade-in-delay-3 { animation: fadeIn 0.4s ease 0.15s both; }
+.animate-fade-in-delay-4 { animation: fadeIn 0.4s ease 0.2s both; }
+
+.praxis-ping {
+  animation: pulse-green 2s cubic-bezier(0.4,0,0.6,1) infinite;
+}
+
+/* ============================================================
+   SKELETON LOADER
+   ============================================================ */
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================
+   INPUTS / FORMS
+   ============================================================ */
+
+.praxis-input {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+
+.praxis-input:focus {
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.08);
+}
+
+.praxis-input::placeholder { color: var(--text-muted); }
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.praxis-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.praxis-table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--bg-border);
+}
+
+.praxis-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.praxis-table tr:last-child td { border-bottom: none; }
+.praxis-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+/* ============================================================
+   HIERARCHY TREE (Fazenda → Talhão → Missão)
+   ============================================================ */
+
+.hierarchy-node {
+  position: relative;
+}
+
+.hierarchy-connector {
+  position: absolute;
+  left: 16px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--bg-border);
+}
+
+.hierarchy-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-secondary);
+}
+
+.hierarchy-item:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   PORTAL PREMIUM OVERRIDES
+   ============================================================ */
+
+.portal-hero {
+  background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34,197,94,0.15) 0%, transparent 60%);
+}
+
+/* ============================================================
+   RECHARTS OVERRIDES
+   ============================================================ */
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-muted) !important;
+  font-size: 11px !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--bg-border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 10px 14px !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
 }

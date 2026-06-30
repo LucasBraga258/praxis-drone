@@ -1,602 +1,112 @@
-import PipelineProjeto from "../../../components/PipelineProjeto";
-import { buscarProjeto } from "../../../../lib/services/projetos";
+import { buscarProjeto } from "@/lib/services/projetos";
 import MissionHeader from "./MissionHeader";
+import MissionIndicators from "./MissionIndicators";
+import PipelineProjeto from "@/app/components/PipelineProjeto";
+import MissionUpload from "./MissionUpload";
+import MissionProducts from "./MissionProducts";
+import MissionInterventions from "./MissionInterventions";
+import MissionTechnicalData from "./MissionTechnicalData";
 import MissionFiles from "./MissionFiles";
 import MissionActions from "./MissionActions";
 
-type IntervencaoProjeto = {
-  id: number | string;
-  data_intervencao?: string | null;
-  praga?: string | null;
-  produto?: string | null;
-  dose?: string | null;
-  responsavel?: string | null;
-};
-
-export default async function ProjetoAdminPage({
+export default async function MissaoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
   const projetoResult = await buscarProjeto(Number(id));
 
-  const fazendaResult = projetoResult
-    ? Array.isArray(projetoResult.fazendas)
-      ? projetoResult.fazendas[0]
-      : projetoResult.fazendas ??
-        (Array.isArray(projetoResult.fazenda)
-          ? projetoResult.fazenda[0]
-          : projetoResult.fazenda) ??
-        null
-    : null;
-
-  const projeto = projetoResult
-    ? {
-        ...projetoResult,
-        fazendas: fazendaResult,
-        arquivos_projeto:
-          Array.isArray(projetoResult.arquivos_projeto)
-            ? projetoResult.arquivos_projeto
-            : [],
-        jobs_processamento:
-          Array.isArray(projetoResult.jobs_processamento)
-            ? projetoResult.jobs_processamento
-            : [],
-        intervencoes:
-          Array.isArray(projetoResult.intervencoes)
-            ? projetoResult.intervencoes
-            : [],
-      }
-    : null;
-
-console.log("PROJETO:", JSON.stringify(projeto, null, 2));
-
-  const arquivos = projeto?.arquivos_projeto ?? [];
-
-  const quantidadeFotos =
-    arquivos.filter((a: any) => a?.tipo === "foto").length || 0;
-
-  const tamanhoTotal =
-    (arquivos
-      .filter((a: any) => a?.tipo === "foto")
-      .reduce(
-        (acc: number, a: any) => acc + Number(a?.tamanho || 0),
-        0
-      ) || 0);
-
-  const ultimoUpload = arquivos.length
-    ? arquivos.sort(
-        (a: any, b: any) =>
-          new Date(b?.created_at).getTime() -
-          new Date(a?.created_at).getTime()
-      )[0]
-    : null;
-
-  const intervencoes: IntervencaoProjeto[] = Array.isArray(
-    projeto?.intervencoes
-  )
-    ? projeto.intervencoes
-    : [];
-
-  if (!projeto) {
+  if (!projetoResult) {
     return (
       <main className="min-h-screen bg-[#07111F] text-white p-10">
-        <h1 className="text-3xl font-bold">
-          Projeto não encontrado
-        </h1>
+        <h1 className="text-3xl font-bold">Missão não encontrada</h1>
+        <p className="text-slate-400 mt-2">
+          A missão solicitada não existe ou foi removida.
+        </p>
       </main>
     );
   }
 
+  const fazenda = Array.isArray(projetoResult.fazendas)
+    ? projetoResult.fazendas[0]
+    : projetoResult.fazendas ?? null;
+
+  const projeto = {
+    ...projetoResult,
+    fazendas: fazenda,
+    arquivos_projeto: Array.isArray(projetoResult.arquivos_projeto)
+      ? projetoResult.arquivos_projeto
+      : [],
+    jobs_processamento: Array.isArray(projetoResult.jobs_processamento)
+      ? projetoResult.jobs_processamento
+      : [],
+    intervencoes: Array.isArray(projetoResult.intervencoes)
+      ? projetoResult.intervencoes
+      : [],
+  };
+
   return (
     <main className="min-h-screen bg-[#07111F] text-white p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
 
-      <MissionHeader projeto={projeto} />
+        {/* 1. Header — identidade da missão */}
+        <MissionHeader projeto={projeto} />
 
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
+        {/* 2. Indicadores Agronômicos */}
+        <MissionIndicators
+          altoVigor={projeto.alto_vigor || 0}
+          medioVigor={projeto.medio_vigor || 0}
+          baixoVigor={projeto.baixo_vigor || 0}
+        />
 
-        <div className="bg-[#16253D] p-6 rounded-xl">
-          <p className="text-slate-400">Data do voo</p>
-
-          <h2 className="text-2xl font-bold">{projeto.data_voo}</h2>
-        </div>
-
-        <div className="bg-[#16253D] p-6 rounded-xl">
-          <p className="text-slate-400">Área Mapeada</p>
-
-          <h2 className="text-2xl font-bold">{projeto.area_mapeada} ha</h2>
-        </div>
-
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
-
-        <div className="bg-[#16253D] p-6 rounded-xl">Produtos (Em desenvolvimento)</div>
-
-        <div className="bg-[#16253D] p-6 rounded-xl">Timeline (Em desenvolvimento)</div>
-
-        <div className="bg-[#16253D] p-6 rounded-xl">IA (Em desenvolvimento)</div>
-
-      </div>
-
-      <div className="bg-[#16253D] p-6 rounded-xl mb-8">
-
-        <h2 className="text-2xl font-bold mb-4">Indicadores Agronômicos</h2>
-
-        <div className="grid md:grid-cols-3 gap-4">
-
-          <div>
-            <p className="text-slate-400">Alto Vigor</p>
-
-            <h3 className="text-3xl font-bold text-green-400">{projeto.alto_vigor || 0}%</h3>
-          </div>
-
-          <div>
-            <p className="text-slate-400">Médio Vigor</p>
-
-            <h3 className="text-3xl font-bold text-yellow-400">{projeto.medio_vigor || 0}%</h3>
-          </div>
-
-          <div>
-            <p className="text-slate-400">Baixo Vigor</p>
-
-            <h3 className="text-3xl font-bold text-red-400">{projeto.baixo_vigor || 0}%</h3>
-          </div>
-
-        </div>
-
-      </div>
-
-      <div className="bg-[#16253D] p-6 rounded-xl mb-8">
-
+        {/* 3. Pipeline de Processamento */}
         <PipelineProjeto projetoId={Number(id)} />
 
-      </div>
+        {/* 4. Upload */}
+        <MissionUpload projetoId={Number(id)} />
 
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
+        {/* 5. Produtos Gerados */}
+        <MissionProducts
+          projetoId={Number(id)}
+          camera={projeto.camera}
+          ortomosaicoUrl={projeto.ortomosaico_url}
+          ndviUrl={projeto.ndvi_url}
+          webgisUrl={projeto.webgis_url}
+          pdfUrl={projeto.pdf_url}
+          ortomosaicoImgUrl={projeto.ortomosaico_img_url}
+          ndviImgUrl={projeto.ndvi_img_url}
+          elevacaoImgUrl={projeto.elevacao_img_url}
+        />
 
-        <MissionFiles arquivos={arquivos} />
-
-        <div className="p-4 bg-white rounded-xl shadow-sm">
-          <h3 className="font-semibold mb-2">Validation</h3>
-          <p className="text-sm text-slate-500">Em desenvolvimento</p>
+        {/* 6. Arquivos + Ações */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          <MissionFiles arquivos={projeto.arquivos_projeto} />
+          <MissionActions projetoId={projeto.id} />
         </div>
 
-        <MissionActions projetoId={projeto.id} />
+        {/* 7. Intervenções */}
+        <MissionInterventions intervencoes={projeto.intervencoes} />
+
+        {/* 8. Dados Técnicos */}
+        <MissionTechnicalData
+          cultura={projeto.cultura}
+          municipio={projeto.municipio}
+          uf={projeto.uf}
+          gsd={projeto.gsd}
+          latitude={projeto.latitude}
+          longitude={projeto.longitude}
+          elevacaoMin={projeto.elevacao_min}
+          elevacaoMax={projeto.elevacao_max}
+          piloto={projeto.piloto}
+          drone={projeto.drone}
+          camera={projeto.camera}
+          alturaVoo={projeto.altura_voo}
+          sobreposicaoFrontal={projeto.sobreposicao_frontal}
+          sobreposicaoLateral={projeto.sobreposicao_lateral}
+        />
 
       </div>
-
-      <div className="bg-[#16253D] p-6 rounded-xl mb-8">
-
-        <h2 className="text-2xl font-bold mb-4">Dados Técnicos</h2>
-
-        <div className="grid md:grid-cols-2 gap-4">
-
-          <div>
-            <p className="text-slate-400">Cultura</p>
-
-            <p>{projeto.cultura || "-"}</p>
-          </div>
-
-          <div>
-            <p className="text-slate-400">Município / UF</p>
-
-            <p>{projeto.municipio || "-"} / {projeto.uf || "-"}</p>
-          </div>
-
-          <div>
-            <p className="text-slate-400">GSD</p>
-
-            <p>{projeto.gsd || "-"}</p>
-          </div>
-
-          <div>
-            <p className="text-slate-400">Coordenadas</p>
-
-            <p>{projeto.latitude || "-"}, {projeto.longitude || "-"}</p>
-          </div>
-
-          <div>
-            <p className="text-slate-400">Elevação Mínima</p>
-
-            <p>{projeto.elevacao_min || "-"}</p>
-          </div>
-
-          <div>
-            <p className="text-slate-400">Elevação Máxima</p>
-
-            <p>{projeto.elevacao_max || "-"}</p>
-          </div>
-
-        </div>
-
-      </div>
-      <div className="bg-[#16253D] p-6 rounded-xl mb-8">
-
-  <h2 className="text-2xl font-bold mb-6">
-    ✈️ Missão de Voo
-  </h2>
-
-  <div className="grid md:grid-cols-2 gap-4">
-
-    <div>
-      <p className="text-slate-400">
-        Piloto
-      </p>
-
-      <p>
-        {projeto.piloto || "-"}
-      </p>
-    </div>
-
-    <div>
-      <p className="text-slate-400">
-        Drone
-      </p>
-
-      <p>
-        {projeto.drone || "-"}
-      </p>
-    </div>
-
-    <div>
-      <p className="text-slate-400">
-        Câmera
-      </p>
-
-      <p>
-        {projeto.camera || "-"}
-      </p>
-    </div>
-
-    <div>
-      <p className="text-slate-400">
-        Altitude
-      </p>
-
-      <p>
-        {projeto.altura_voo
-          ? `${projeto.altura_voo} m`
-          : "-"}
-      </p>
-    </div>
-
-    <div>
-      <p className="text-slate-400">
-        Sobreposição Frontal
-      </p>
-
-      <p>
-        {projeto.sobreposicao_frontal
-          ? `${projeto.sobreposicao_frontal}%`
-          : "-"}
-      </p>
-    </div>
-
-    <div>
-      <p className="text-slate-400">
-        Sobreposição Lateral
-      </p>
-
-      <p>
-        {projeto.sobreposicao_lateral
-          ? `${projeto.sobreposicao_lateral}%`
-          : "-"}
-      </p>
-    </div>
-
-  </div>
-
-</div>
-
-<div className="bg-[#16253D] p-6 rounded-xl mb-8">
-
-  <div className="flex justify-between items-center mb-6">
-
-    <h2 className="text-2xl font-bold">
-      📂 Arquivos do Projeto
-    </h2>
-
-    <button
-      className="bg-green-700 px-4 py-2 rounded-lg font-semibold"
-    >
-      📤 Enviar Fotos
-    </button>
-
-  </div>
-
-  <div className="space-y-4">
-
-    <div className="flex justify-between bg-[#0F1C30] p-4 rounded-xl">
-
-  <div>
-
-    <p className="font-semibold">
-      📷 Fotos Originais
-    </p>
-
-    {quantidadeFotos > 0 ? (
-
-      <>
-
-        <p className="text-slate-400 text-sm">
-          {quantidadeFotos} imagens
-        </p>
-
-        <p className="text-slate-400 text-sm">
-          {(tamanhoTotal / 1024 / 1024).toFixed(2)} MB
-        </p>
-
-        <p className="text-slate-500 text-xs mt-1">
-          Último envio:
-          {" "}
-          {ultimoUpload?.created_at
-            ? new Date(
-                ultimoUpload.created_at
-              ).toLocaleString("pt-BR")
-            : "-"}
-        </p>
-
-      </>
-
-    ) : (
-
-      <p className="text-slate-400 text-sm">
-        Ainda não enviadas
-      </p>
-
-    )}
-
-  </div>
-
-  <span
-    className={
-      quantidadeFotos
-        ? "text-green-400"
-        : "text-yellow-400"
-    }
-  >
-    {quantidadeFotos
-      ? "Recebidas"
-      : "Aguardando"}
-  </span>
-
-</div>
-    <div className="flex justify-between bg-[#0F1C30] p-4 rounded-xl">
-      <div>
-        <p className="font-semibold">
-          🗺 Ortomosaico
-        </p>
-
-        <p className="text-slate-400 text-sm">
-          Ainda não processado
-        </p>
-      </div>
-
-      <span className="text-slate-400">
-        —
-      </span>
-    </div>
-
-    <div className="flex justify-between bg-[#0F1C30] p-4 rounded-xl">
-      <div>
-        <p className="font-semibold">
-          🌿 NDVI
-        </p>
-
-        <p className="text-slate-400 text-sm">
-          Ainda não gerado
-        </p>
-      </div>
-
-      <span className="text-slate-400">
-        —
-      </span>
-    </div>
-
-    <div className="flex justify-between bg-[#0F1C30] p-4 rounded-xl">
-      <div>
-        <p className="font-semibold">
-          🏔 Modelo de Elevação
-        </p>
-
-        <p className="text-slate-400 text-sm">
-          Ainda não gerado
-        </p>
-      </div>
-
-      <span className="text-slate-400">
-        —
-      </span>
-    </div>
-
-    <div className="flex justify-between bg-[#0F1C30] p-4 rounded-xl">
-      <div>
-        <p className="font-semibold">
-          📄 Relatório
-        </p>
-
-        <p className="text-slate-400 text-sm">
-          Ainda não disponível
-        </p>
-      </div>
-
-      <span className="text-slate-400">
-        —
-      </span>
-    </div>
-
-  </div>
-
-</div>
-
-      <div className="bg-[#16253D] p-6 rounded-xl mb-8">
-
-        <h2 className="text-2xl font-bold mb-4">
-          Links do Projeto
-        </h2>
-
-        <div className="space-y-4">
-
-          <div>
-            <p className="text-slate-400 mb-1">
-              NDVI
-            </p>
-
-            {projeto.ndvi_url ? (
-              <a
-                href={projeto.ndvi_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-green-400 underline"
-              >
-                Abrir NDVI
-              </a>
-            ) : (
-              <p className="text-slate-500">
-                Não informado
-              </p>
-            )}
-          </div>
-
-          <div>
-            <p className="text-slate-400 mb-1">
-              Ortomosaico
-            </p>
-
-            {projeto.ortomosaico_url ? (
-              <a
-                href={projeto.ortomosaico_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-green-400 underline"
-              >
-                Abrir Ortomosaico
-              </a>
-            ) : (
-              <p className="text-slate-500">
-                Não informado
-              </p>
-            )}
-          </div>
-
-          <div>
-            <p className="text-slate-400 mb-1">
-              WebGIS
-            </p>
-
-            {projeto.webgis_url ? (
-              <a
-                href={projeto.webgis_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-green-400 underline"
-              >
-                Abrir WebGIS
-              </a>
-            ) : (
-              <p className="text-slate-500">
-                Não informado
-              </p>
-            )}
-          </div>
-
-        </div>
-
-      </div>
-
-      <div className="bg-[#16253D] p-6 rounded-xl mb-8">
-
-  <h2 className="text-2xl font-bold mb-4">
-    🧪 Intervenções Relacionadas
-  </h2>
-
-  {intervencoes?.length ? (
-
-    <div className="space-y-4">
-
-      {intervencoes?.map((item) => (
-
-        <div
-          key={item.id}
-          className="bg-[#0F1C30] p-4 rounded-xl"
-        >
-
-          <p>
-            📅 {item.data_intervencao}
-          </p>
-
-          <p>
-            🐛 {item.praga || "-"}
-          </p>
-
-          <p>
-            🧪 {item.produto || "-"}
-          </p>
-
-          <p>
-            💉 {item.dose || "-"}
-          </p>
-
-          <p>
-            👨‍🌾 {item.responsavel || "-"}
-          </p>
-
-        </div>
-
-      ))}
-
-    </div>
-
-  ) : (
-
-    <p className="text-slate-400">
-      Nenhuma intervenção registrada.
-    </p>
-
-  )}
-
-</div>
-
-     
-    
-
-  
-
-      <div className="flex flex-wrap gap-4">
-
-        <a
-          href={`/projetos/${projeto.id}`}
-          target="_blank"
-          className="bg-green-700 px-6 py-3 rounded-xl font-bold"
-        >
-          Visualizar Projeto Público
-        </a>
-
-        <a
-          href={`/dashboard/projetos/${projeto.id}/editar`}
-          className="bg-blue-700 px-6 py-3 rounded-xl font-bold"
-        >
-          Editar Projeto
-        </a>
-
-        <a
-          href={`/dashboard/projetos/${projeto.id}/diagnostico`}
-          className="bg-purple-700 px-6 py-3 rounded-xl font-bold"
-        >
-          Diagnóstico
-        </a>
-         <a
-         href={`/dashboard/projetos/${projeto.id}/upload`}
-         className="bg-green-700 px-6 py-3 rounded-xl font-bold"
-         >
-          📤 Enviar Fotos
-        </a>
-
-      </div>
-
     </main>
   );
 }

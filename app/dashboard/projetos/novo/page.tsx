@@ -1,32 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { criarProjeto } from "../../../../lib/services/projetos";
-import {
-  listarFazendas,
-  type Fazenda,
-} from "../../../../lib/services/fazendas";
-import {
-  listarTalhoes,
-  type Talhao,
-} from "../../../../lib/services/talhoes";
+import { listarFazendas, type Fazenda } from "../../../../lib/services/fazendas";
+import { listarTalhoes, type Talhao } from "../../../../lib/services/talhoes";
+import { toast } from "sonner";
+import Card from "@/app/components/ui/Card";
 
-export default function NovoProjetoPage() {
+function NovoProjetoForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const queryFazenda = searchParams.get("fazendaId") || "";
+  const queryTalhao = searchParams.get("talhaoId") || "";
 
   const [fazendas, setFazendas] = useState<Fazenda[]>([]);
   const [talhoes, setTalhoes] = useState<Talhao[]>([]);
-  const [fazendaId, setFazendaId] = useState("");
-  const [talhaoId, setTalhaoId] = useState("");
+  const [fazendaId, setFazendaId] = useState(queryFazenda);
+  const [talhaoId, setTalhaoId] = useState(queryTalhao);
   const [dataVoo, setDataVoo] = useState("");
-  const [areaMapeada, setAreaMapeada] = useState("");
-  const [piloto, setPiloto] = useState("");
-  const [drone, setDrone] = useState("");
-  const [camera, setCamera] = useState("");
-  const [alturaVoo, setAlturaVoo] = useState("");
-  const [sobreposicaoFrontal, setSobreposicaoFrontal] = useState("");
-  const [sobreposicaoLateral, setSobreposicaoLateral] = useState("");
+  const [fonteCaptura, setFonteCaptura] = useState("Drone");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -34,7 +28,6 @@ export default function NovoProjetoPage() {
       const data = await listarFazendas();
       setFazendas(data);
     }
-
     carregarFazendas();
   }, []);
 
@@ -44,266 +37,133 @@ export default function NovoProjetoPage() {
         setTalhoes([]);
         return;
       }
-
       const data = await listarTalhoes(Number(fazendaId));
       setTalhoes(data);
     }
-
     setTalhaoId("");
     carregarTalhoes();
   }, [fazendaId]);
 
   async function salvarProjeto() {
-    if (!fazendaId) {
-      alert("Selecione a fazenda do projeto.");
-      return;
-    }
-
-    if (!talhaoId) {
-      alert("Selecione o talhão do projeto.");
+    if (!fazendaId || !talhaoId || !dataVoo) {
+      toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
 
     setSalvando(true);
 
     try {
+      // Os dados técnicos (Drone, Câmera, Altura) serão preenchidos
+      // automaticamente via extração de EXIF no momento do Upload.
       await criarProjeto({
         fazendaId: Number(fazendaId),
         talhaoId: Number(talhaoId),
         dataVoo,
-        areaMapeada: Number(areaMapeada),
-        piloto,
-        drone,
-        camera,
-        alturaVoo: alturaVoo
-          ? Number(alturaVoo)
-          : null,
-        sobreposicaoFrontal: sobreposicaoFrontal
-          ? Number(sobreposicaoFrontal)
-          : null,
-        sobreposicaoLateral: sobreposicaoLateral
-          ? Number(sobreposicaoLateral)
-          : null,
+        // @ts-ignore - Aceitando campos vazios para pré-cadastro
+        piloto: null, drone: null, camera: null,
+        areaMapeada: 0, 
+        fonte_captura: fonteCaptura
       });
 
+      toast.success("Missão inicializada com sucesso!");
       router.push("/dashboard/projetos");
       router.refresh();
     } catch (error) {
       console.error(error);
-      alert("Erro ao salvar projeto");
+      toast.error("Erro ao salvar projeto");
     } finally {
       setSalvando(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-[#07111F] text-white p-8">
+    <main className="min-h-screen bg-[#07111F] text-white p-8 flex flex-col items-center">
+      <div className="w-full max-w-2xl">
+        <h1 className="text-4xl font-bold mb-2">Iniciar Nova Missão</h1>
+        <p className="text-slate-400 mb-8">Os metadados técnicos (câmera, altura, etc) serão extraídos automaticamente no momento do upload das imagens.</p>
 
-      <h1 className="text-4xl font-bold mb-8">
-        Novo Projeto
-      </h1>
-
-      <div className="max-w-2xl space-y-4">
-
-        <div>
-          <label className="block mb-2">
-            Fazenda
-          </label>
-
-          <select
-            value={fazendaId}
-            onChange={(e) =>
-              setFazendaId(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          >
-            <option value="">
-              Selecione uma fazenda
-            </option>
-
-            {fazendas.map((fazenda) => (
-              <option
-                key={fazenda.id}
-                value={fazenda.id}
+        <Card className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-slate-400 text-sm uppercase font-bold mb-2">Fazenda (Propriedade)</label>
+              <select
+                value={fazendaId}
+                onChange={(e) => setFazendaId(e.target.value)}
+                className="w-full p-3 rounded-xl bg-[#0F1C30] border border-slate-700 focus:border-emerald-500 focus:outline-none transition-colors"
               >
-                {fazenda.nome}
-              </option>
-            ))}
-          </select>
-        </div>
+                <option value="">Selecione uma fazenda</option>
+                {fazendas.map((fazenda) => (
+                  <option key={fazenda.id} value={fazenda.id}>{fazenda.nome}</option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="block mb-2">
-            Talhão
-          </label>
-
-          <select
-            value={talhaoId}
-            onChange={(e) =>
-              setTalhaoId(e.target.value)
-            }
-            disabled={!fazendaId}
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          >
-            <option value="">
-              {fazendaId
-                ? "Selecione um talhão"
-                : "Selecione uma fazenda primeiro"}
-            </option>
-
-            {talhoes.map((talhao) => (
-              <option
-                key={talhao.id}
-                value={talhao.id}
+            <div>
+              <label className="block text-slate-400 text-sm uppercase font-bold mb-2">Talhão de Interesse</label>
+              <select
+                value={talhaoId}
+                onChange={(e) => setTalhaoId(e.target.value)}
+                disabled={!fazendaId}
+                className="w-full p-3 rounded-xl bg-[#0F1C30] border border-slate-700 disabled:opacity-50 focus:border-emerald-500 focus:outline-none transition-colors"
               >
-                {talhao.nome}
-              </option>
-            ))}
-          </select>
-        </div>
+                <option value="">{fazendaId ? "Selecione um talhão" : "Selecione a fazenda primeiro"}</option>
+                {talhoes.map((talhao) => (
+                  <option key={talhao.id} value={talhao.id}>{talhao.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-        <div>
-          <label className="block mb-2">
-            Data do voo
-          </label>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-slate-400 text-sm uppercase font-bold mb-2">Data da Captura</label>
+              <input
+                type="date"
+                value={dataVoo}
+                onChange={(e) => setDataVoo(e.target.value)}
+                className="w-full p-3 rounded-xl bg-[#0F1C30] border border-slate-700 focus:border-emerald-500 focus:outline-none transition-colors"
+              />
+            </div>
 
-          <input
-            type="date"
-            value={dataVoo}
-            onChange={(e) =>
-              setDataVoo(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          />
-        </div>
+            <div>
+              <label className="block text-slate-400 text-sm uppercase font-bold mb-2">Fonte de Dados</label>
+              <select
+                value={fonteCaptura}
+                onChange={(e) => setFonteCaptura(e.target.value)}
+                className="w-full p-3 rounded-xl bg-[#0F1C30] border border-slate-700 focus:border-emerald-500 focus:outline-none transition-colors"
+              >
+                <option value="Drone">🚁 Voo de Drone (RGB/Multiespectral)</option>
+                <option value="Satelite">🛰️ Satélite (Sentinel / Landsat)</option>
+                <option value="Sensor">📡 Sensor de Solo (IoT)</option>
+              </select>
+            </div>
+          </div>
 
-        <div>
-          <label className="block mb-2">
-            Área Mapeada (ha)
-          </label>
-
-          <input
-            type="number"
-            value={areaMapeada}
-            onChange={(e) =>
-              setAreaMapeada(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-2">
-            Piloto
-          </label>
-
-          <input
-            value={piloto}
-            onChange={(e) =>
-              setPiloto(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-2">
-            Drone
-          </label>
-
-          <select
-            value={drone}
-            onChange={(e) =>
-              setDrone(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          >
-            <option value="">Selecione</option>
-            <option>Mavic 3 Multispectral</option>
-            <option>Mavic 3 Enterprise</option>
-            <option>Phantom 4 RTK</option>
-            <option>Matrice 350 RTK</option>
-            <option>Outro</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block mb-2">
-            Câmera
-          </label>
-
-          <select
-            value={camera}
-            onChange={(e) =>
-              setCamera(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          >
-            <option value="">Selecione</option>
-            <option>RGB</option>
-            <option>RGB + Multispectral</option>
-            <option>Termal</option>
-            <option>LiDAR</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block mb-2">
-            Altura do voo (m)
-          </label>
-
-          <input
-            type="number"
-            value={alturaVoo}
-            onChange={(e) =>
-              setAlturaVoo(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-2">
-            Sobreposição Frontal (%)
-          </label>
-
-          <input
-            type="number"
-            value={sobreposicaoFrontal}
-            onChange={(e) =>
-              setSobreposicaoFrontal(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-2">
-            Sobreposição Lateral (%)
-          </label>
-
-          <input
-            type="number"
-            value={sobreposicaoLateral}
-            onChange={(e) =>
-              setSobreposicaoLateral(e.target.value)
-            }
-            className="w-full p-3 rounded-xl bg-[#16253D] border border-slate-600"
-          />
-        </div>
-
-        <button
-          onClick={salvarProjeto}
-          disabled={salvando}
-          className="bg-[#1E5D2D] px-6 py-3 rounded-xl font-bold"
-        >
-          {salvando
-            ? "Salvando..."
-            : "Salvar Projeto"}
-        </button>
-
+          <div className="pt-6 border-t border-slate-700 flex justify-end gap-4">
+            <button
+              onClick={() => router.back()}
+              className="px-6 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={salvarProjeto}
+              disabled={salvando}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl font-bold transition disabled:opacity-50"
+            >
+              {salvando ? "Criando..." : "Prosseguir para Upload"}
+            </button>
+          </div>
+        </Card>
       </div>
-
     </main>
+  );
+}
+
+export default function NovoProjetoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#07111F] p-8 text-emerald-500 font-bold">Carregando formulário...</div>}>
+      <NovoProjetoForm />
+    </Suspense>
   );
 }

@@ -1,363 +1,178 @@
 import * as exifr from "exifr";
 import { traduzirDrone } from "./traduzirDrone";
+import type { MetadadosFoto, ResultadoValidacao } from "./interfaces";
 
-export interface MetadadosFoto {
-  nome: string;
+export type { MetadadosFoto, ResultadoValidacao };
 
-  fabricante?: string;
+const EXTENSOES_VALIDAS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".tif",
+  ".tiff",
+]);
 
-  modelo?: string;
-
-  largura?: number;
-
-  altura?: number;
-
-  latitude?: number;
-
-  longitude?: number;
-
-  altitude?: number;
-
-  data?: Date;
-}
-
-export interface ResultadoValidacao {
-  quantidadeFotos: number;
-
-  tamanhoTotal: number;
-
-  drone?: string;
-
-  fabricante?: string;
-
-  largura?: number;
-
-  altura?: number;
-
-  latitude?: number;
-
-  longitude?: number;
-
-  altitude?: number;
-
-  dataVoo?: Date;
-
-  fotosComGPS: number;
-
-  fotosSemGPS: number;
-
-  altitudeMinima?: number;
-
-  altitudeMaxima?: number;
-
-  altitudeMedia?: number;
-
-  erros: string[];
-
-  avisos: string[];
-}
+const TAMANHO_MINIMO = 100 * 1024; // 100 KB
+const QUANTIDADE_MINIMA = 5;
 
 export async function validarFotos(
   arquivos: File[]
 ): Promise<ResultadoValidacao> {
-
-  const metadados =
-    await extrairMetadados(arquivos);
-
-  return validarMetadados(
-    arquivos,
-    metadados
-  );
-
+  const metadados = await extrairMetadados(arquivos);
+  return validarMetadados(arquivos, metadados);
 }
 
 async function extrairMetadados(
   arquivos: File[]
 ): Promise<MetadadosFoto[]> {
-
   const fotos: MetadadosFoto[] = [];
 
   for (const foto of arquivos) {
+    try {
+      const exif = await exifr.parse(foto);
 
-    const exif =
-      await exifr.parse(foto);
-
-    fotos.push({
-
-      nome: foto.name,
-
-      fabricante:
-        exif?.Make,
-
-      modelo:
-        exif?.Model,
-
-      largura:
-        exif?.ExifImageWidth ||
-        exif?.ImageWidth,
-
-      altura:
-        exif?.ExifImageHeight ||
-        exif?.ImageHeight,
-
-      latitude:
-        exif?.latitude,
-
-      longitude:
-        exif?.longitude,
-
-      altitude:
-        exif?.GPSAltitude,
-
-      data:
-        exif?.CreateDate,
-
-    });
-
+      fotos.push({
+        nome: foto.name,
+        fabricante: exif?.Make,
+        modelo: exif?.Model,
+        largura: exif?.ExifImageWidth || exif?.ImageWidth,
+        altura: exif?.ExifImageHeight || exif?.ImageHeight,
+        latitude: exif?.latitude,
+        longitude: exif?.longitude,
+        altitude: exif?.GPSAltitude,
+        data: exif?.CreateDate,
+      });
+    } catch {
+      fotos.push({ nome: foto.name });
+    }
   }
 
-  console.table(fotos);
-
   return fotos;
-
 }
 
 function validarMetadados(
   arquivos: File[],
   fotos: MetadadosFoto[]
 ): ResultadoValidacao {
-
   const resultado: ResultadoValidacao = {
-
     quantidadeFotos: arquivos.length,
-
-    tamanhoTotal: arquivos.reduce(
-      (acc, arquivo) => acc + arquivo.size,
-      0
-    ),
-
+    tamanhoTotal: arquivos.reduce((acc, a) => acc + a.size, 0),
     fotosComGPS: 0,
-
     fotosSemGPS: 0,
-
     erros: [],
-
     avisos: [],
-
   };
 
   if (!fotos.length) {
-
-    resultado.erros.push(
-      "Nenhuma foto foi enviada."
-    );
-
+    resultado.erros.push("Nenhuma foto foi enviada.");
     return resultado;
-
   }
 
+  // === Extensão ===
+  const invalidos = arquivos.filter((a) => {
+    const ext = "." + a.name.split(".").pop()?.toLowerCase();
+    return !EXTENSOES_VALIDAS.has(ext);
+  });
+
+  if (invalidos.length > 0) {
+    resultado.erros.push(
+      `${invalidos.length} arquivo(s) com extensão inválida: ${invalidos
+        .slice(0, 3)
+        .map((a) => a.name)
+        .join(", ")}${invalidos.length > 3 ? "..." : ""}`
+    );
+  }
+
+  // === Duplicatas ===
+  const nomes = arquivos.map((a) => a.name);
+  const duplicatas = nomes.filter(
+    (nome, i) => nomes.indexOf(nome) !== i
+  );
+
+  if (duplicatas.length > 0) {
+    resultado.avisos.push(
+      `${duplicatas.length} arquivo(s) duplicado(s) detectado(s).`
+    );
+  }
+
+  // === Tamanho mínimo ===
+  const pequenos = arquivos.filter((a) => a.size < TAMANHO_MINIMO);
+  if (pequenos.length > 0) {
+    resultado.avisos.push(
+      `${pequenos.length} arquivo(s) muito pequeno(s) (< 100 KB).`
+    );
+  }
+
+  // === Quantidade mínima ===
+  if (arquivos.length < QUANTIDADE_MINIMA) {
+    resultado.avisos.push(
+      `Quantidade baixa de imagens (${arquivos.length}). Recomendado mínimo de ${QUANTIDADE_MINIMA}.`
+    );
+  }
+
+  // === Drone/Fabricante ===
   const primeira = fotos[0];
+  resultado.drone = traduzirDrone(primeira.modelo);
+  resultado.fabricante = primeira.fabricante;
+  resultado.latitude = primeira.latitude;
+  resultado.longitude = primeira.longitude;
+  resultado.altitude = primeira.altitude;
+  resultado.dataVoo = primeira.data;
+  resultado.largura = primeira.largura;
+  resultado.altura = primeira.altura;
 
-  resultado.drone =
-    traduzirDrone(primeira.modelo);
-
-  resultado.fabricante =
-    primeira.fabricante;
-
-  resultado.latitude =
-    primeira.latitude;
-
-  resultado.longitude =
-    primeira.longitude;
-
-  resultado.altitude =
-    primeira.altitude;
-
-  resultado.dataVoo =
-    primeira.data;
-
-  resultado.largura =
-    primeira.largura;
-
-  resultado.altura =
-    primeira.altura;
-
-  // ===========================
-  // GPS
-  // ===========================
-
+  // === GPS ===
   const fotosComGPS = fotos.filter(
-
-    foto =>
-
-      foto.latitude != null &&
-      foto.longitude != null
-
+    (f) => f.latitude != null && f.longitude != null
   ).length;
 
-  const fotosSemGPS =
-    fotos.length - fotosComGPS;
+  resultado.fotosComGPS = fotosComGPS;
+  resultado.fotosSemGPS = fotos.length - fotosComGPS;
 
-  resultado.fotosComGPS =
-    fotosComGPS;
-
-  resultado.fotosSemGPS =
-    fotosSemGPS;
-
-  if (fotosSemGPS > 0) {
-
+  if (resultado.fotosSemGPS > 0) {
     resultado.avisos.push(
-      `${fotosSemGPS} foto(s) sem GPS.`
+      `${resultado.fotosSemGPS} foto(s) sem GPS.`
     );
-
   }
 
-  // ===========================
-  // Altitude
-  // ===========================
-
+  // === Altitude ===
   const altitudes = fotos
-
-    .map(f => f.altitude)
-
-    .filter(
-      (a): a is number =>
-        a != null
-    );
+    .map((f) => f.altitude)
+    .filter((a): a is number => a != null);
 
   if (altitudes.length) {
-
-    resultado.altitudeMinima =
-      Math.min(...altitudes);
-
-    resultado.altitudeMaxima =
-      Math.max(...altitudes);
-
+    resultado.altitudeMinima = Math.min(...altitudes);
+    resultado.altitudeMaxima = Math.max(...altitudes);
     resultado.altitudeMedia =
-
-      altitudes.reduce(
-        (a, b) => a + b,
-        0
-      ) / altitudes.length;
-
+      altitudes.reduce((a, b) => a + b, 0) / altitudes.length;
   }
 
-  // ===========================
-  // Modelos
-  // ===========================
-
-  const modelos = [
-
-    ...new Set(
-
-      fotos.map(
-        foto => foto.modelo
-      )
-
-    ),
-
-  ];
-
+  // === Modelos ===
+  const modelos = [...new Set(fotos.map((f) => f.modelo))];
   if (modelos.length > 1) {
-
-    resultado.avisos.push(
-      "Existem fotos de modelos diferentes."
-    );
-
+    resultado.avisos.push("Existem fotos de modelos diferentes.");
   }
 
-  // ===========================
-  // Fabricantes
-  // ===========================
-
-  const fabricantes = [
-
-    ...new Set(
-
-      fotos.map(
-        foto => foto.fabricante
-      )
-
-    ),
-
-  ];
-
+  // === Fabricantes ===
+  const fabricantes = [...new Set(fotos.map((f) => f.fabricante))];
   if (fabricantes.length > 1) {
-
-    resultado.avisos.push(
-      "Existem fabricantes diferentes."
-    );
-
+    resultado.avisos.push("Existem fabricantes diferentes.");
   }
 
-  // ===========================
-  // Resoluções
-  // ===========================
-
+  // === Resoluções ===
   const resolucoes = [
-
-    ...new Set(
-
-      fotos.map(
-        foto =>
-          `${foto.largura}x${foto.altura}`
-      )
-
-    ),
-
+    ...new Set(fotos.map((f) => `${f.largura}x${f.altura}`)),
   ];
-
   if (resolucoes.length > 1) {
-
-    resultado.avisos.push(
-      "Existem fotos com resoluções diferentes."
-    );
-
+    resultado.avisos.push("Existem fotos com resoluções diferentes.");
   }
 
-  // ===========================
-  // Datas
-  // ===========================
-
+  // === Datas ===
   const datas = [
-
-    ...new Set(
-
-      fotos.map(
-        foto =>
-          foto.data?.toDateString()
-      )
-
-    ),
-
+    ...new Set(fotos.map((f) => f.data?.toDateString())),
   ];
-
   if (datas.length > 1) {
-
-    resultado.avisos.push(
-      "Existem fotos de dias diferentes."
-    );
-
+    resultado.avisos.push("Existem fotos de dias diferentes.");
   }
-
-  // ===========================
-  // Logs
-  // ===========================
-
-  console.log("Fotos:", fotos.length);
-
-  console.log("GPS:", fotosComGPS);
-
-  console.log("Altitude média:", resultado.altitudeMedia);
-
-  console.log("Modelos:", modelos);
-
-  console.log("Fabricantes:", fabricantes);
-
-  console.log("Resoluções:", resolucoes);
-
-  console.log("Datas:", datas);
 
   return resultado;
-
 }

@@ -11,6 +11,9 @@ import { validarFotos }
 from "../../../../../lib/services/missionValidator";
 import ValidacaoMissao
 from "@/app/components/ValidacaoMissao";
+import dynamic from "next/dynamic";
+
+const UploadMap = dynamic(() => import("@/app/components/UploadMap"), { ssr: false });
 
 export default function UploadPage() {
   const params = useParams();
@@ -20,6 +23,9 @@ export default function UploadPage() {
   const [analisando, setAnalisando] = useState(false);
   const [resultadoValidacao, setResultadoValidacao] =
   useState<any>(null);
+
+  const [areaHectares, setAreaHectares] = useState<number | null>(null);
+  const [geoJsonRecorte, setGeoJsonRecorte] = useState<any>(null);
 
   const [arquivos, setArquivos] = useState<File[]>([]);
   const { getRootProps, getInputProps, isDragActive } =
@@ -123,23 +129,26 @@ const tamanhoTotal = arquivos.reduce(
     try {
       setAnalisando(true);
 
-      const { error } = await supabase
-        .from("projetos")
-        .update({
-          analise_status: "Processando",
-        })
-        .eq("id", projetoId);
-
-      if (error) {
-        console.error(error);
-        alert("Erro ao iniciar análise");
-        return;
+      // (Opcional) Salvar a area estimada e o recorte no projeto antes de iniciar
+      if (areaHectares !== null) {
+        await supabase.from("projetos").update({ area_mapeada: areaHectares }).eq("id", projetoId);
       }
 
-      alert("Análise iniciada com sucesso!");
-    } catch (error) {
+      // 1. O novo Fluxo: Disparar a Máquina de Estados (API Assíncrona)
+      const res = await fetch("/api/pipeline/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projetoId }),
+      });
+
+      if (!res.ok) throw new Error("Falha ao iniciar Pipeline");
+
+      // Atualizar interface visual para o usuário
+      toast.success("Processamento em nuvem iniciado! Você pode sair desta tela.");
+      
+    } catch (error: any) {
       console.error(error);
-      alert("Erro ao analisar projeto");
+      toast.error(error.message || "Erro ao iniciar orquestração.");
     } finally {
       setAnalisando(false);
     }
@@ -157,6 +166,12 @@ const tamanhoTotal = arquivos.reduce(
       </p>
 
       <div className="grid gap-6 max-w-4xl">
+
+        {/* MAPA INTERATIVO (Área de Interesse) */}
+        <UploadMap onAreaCalculated={(area, geo) => {
+          setAreaHectares(area);
+          setGeoJsonRecorte(geo);
+        }} />
 
         <div className="bg-[#16253D] rounded-xl p-8">
 

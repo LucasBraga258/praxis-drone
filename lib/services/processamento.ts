@@ -1,17 +1,58 @@
 import { supabase } from "../supabase";
 
-export async function buscarPipelineProjeto(
-  projetoId: number
-) {
-  const { data, error } = await supabase
-    .from("jobs_processamento")
+export async function buscarPipelineProjeto(projetoId: number) {
+  // Busca a situação atual da Máquina de Estados (Sprint 6)
+  const { data: job, error } = await supabase
+    .from("mission_jobs")
     .select("*")
     .eq("projeto_id", projetoId)
-    .order("ordem");
+    .single();
 
-  if (error) throw error;
+  // Mapeamento visual das etapas
+  const etapasDefinidas = [
+    { key: "UPLOAD_CONCLUIDO", label: "Upload & Verificação", ordem: 1 },
+    { key: "HEALTH_CHECK", label: "Diagnóstico de Nuvem", ordem: 2 },
+    { key: "NODEODM", label: "OpenDroneMap (Fotogrametria)", ordem: 3 },
+    { key: "INTELIGENCIA_ARTIFICIAL", label: "IA Praxis (Anomalias)", ordem: 4 },
+    { key: "RELATORIO_PDF", label: "Relatório & Entrega", ordem: 5 },
+  ];
 
-  return data;
+  if (error || !job) {
+    // Se o job não existe, todas pendentes
+    return etapasDefinidas.map(e => ({ id: e.key, etapa: e.label, status: "Aguardando", progresso: 0 }));
+  }
+
+  // Determina o index da etapa atual baseada na chave salva no motor
+  const etapaAtualIndex = etapasDefinidas.findIndex(e => e.key === job.etapa_atual);
+
+  return etapasDefinidas.map((e, index) => {
+    let status = "Aguardando";
+    let progresso = 0;
+
+    if (job.status === "COMPLETED") {
+      status = "Concluído";
+      progresso = 100;
+    } else if (job.status === "FAILED") {
+      if (index === etapaAtualIndex) {
+        status = "Erro";
+        progresso = 0;
+      } else if (index < etapaAtualIndex) {
+        status = "Concluído";
+        progresso = 100;
+      }
+    } else {
+      // RUNNING, QUEUED ou RETRYING
+      if (index < etapaAtualIndex) {
+        status = "Concluído";
+        progresso = 100;
+      } else if (index === etapaAtualIndex) {
+        status = job.status === "RETRYING" ? "Retentando..." : "Processando";
+        progresso = 50; // Visual de metade para indicar andamento
+      }
+    }
+
+    return { id: e.key, etapa: e.label, status, progresso };
+  });
 }
 
 const ETAPAS = [
