@@ -1,4 +1,4 @@
-import { executarPipelineAssincrono } from "./lib/services/pipeline";
+import { executarPipelineAssincrono } from "../lib/services/pipeline";
 
 async function main() {
   console.log("Iniciando pipeline manualmente para o Projeto 6...");

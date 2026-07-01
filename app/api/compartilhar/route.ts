@@ -81,6 +81,7 @@ export async function DELETE(req: NextRequest) {
   if (!token) {
     return NextResponse.json({ erro: "Token obrigatório." }, { status: 400 });
   }
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("compartilhamentos")
