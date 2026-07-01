@@ -1,17 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
+import { use } from "react";
 
 export default function ExcluirClientePage({
   params,
 }: {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }) {
+  const supabase = createClient();
 
   const router = useRouter();
+  const { id } = use(params);
 
   async function excluir() {
 
@@ -25,7 +26,7 @@ export default function ExcluirClientePage({
     const { error } = await supabase
       .from("clientes")
       .delete()
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) {
 

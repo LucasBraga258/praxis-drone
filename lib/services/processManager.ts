@@ -1,5 +1,4 @@
-import { supabase } from "../../lib/supabase";
-
+import { supabaseAdmin as supabase } from "../supabase/admin";
 /**
  * Process Manager (A Máquina de Estados)
  * 

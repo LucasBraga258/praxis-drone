@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { randomBytes } from "crypto";
 
 /**
@@ -8,6 +8,7 @@ import { randomBytes } from "crypto";
  */
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient();
     const { projetoId, diasExpiracao = 7, titulo, criadoPor } = await req.json();
 
     if (!projetoId) {

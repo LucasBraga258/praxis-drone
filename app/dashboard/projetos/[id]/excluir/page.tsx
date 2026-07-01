@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ExcluirProjetoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = createClient();
   const router = useRouter();
 
   const [id, setId] = useState("");
@@ -51,46 +52,32 @@ export default function ExcluirProjetoPage({
   }, [params]);
 
   async function excluirProjeto() {
+    const confirmar = confirm("Deseja excluir esta missão? ATENÇÃO: Todos os arquivos, ortomosaicos e dados vinculados serão perdidos.");
+    if (!confirmar) return;
+
     setExcluindo(true);
 
-    // Verifica se existem intervenções
+    try {
+      // 1. Delete arquivos vinculados
+      await supabase.from("arquivos").delete().eq("projeto_id", id);
+      
+      // 2. Delete projeto
+      const { error } = await supabase.from("projetos").delete().eq("id", id);
 
-    const { count } = await supabase
-      .from("intervencoes")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .eq("fazenda_id", id);
+      if (error) {
+        console.error(error);
+        alert("Erro ao excluir missão: " + error.message);
+        setExcluindo(false);
+        return;
+      }
 
-    if ((count || 0) > 0) {
-      alert(
-        "Este projeto possui informações relacionadas. Exclua os vínculos antes."
-      );
-
+      alert("Missão excluída com sucesso!");
+      router.push("/dashboard/projetos");
+      router.refresh();
+    } catch (err: any) {
+      alert("Erro interno ao excluir missão: " + err.message);
       setExcluindo(false);
-      return;
     }
-
-    const { error } = await supabase
-      .from("projetos")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      console.error(error);
-
-      alert("Erro ao excluir projeto.");
-
-      setExcluindo(false);
-
-      return;
-    }
-
-    alert("Projeto excluído com sucesso!");
-
-    router.push("/dashboard/projetos");
-    router.refresh();
   }
 
   if (carregando) {

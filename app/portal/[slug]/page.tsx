@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "../../../lib/supabase/server";
 
 export default async function PortalClientePage({
   params,
@@ -8,6 +8,7 @@ export default async function PortalClientePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const supabase = await createClient();
 
   // Buscar fazenda pelo slug (nome normalizado) ou ID
   const slugIsId = /^\d+$/.test(slug);

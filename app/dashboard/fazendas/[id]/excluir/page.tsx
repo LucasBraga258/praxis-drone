@@ -1,60 +1,67 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
+import { useState, use } from "react";
 
 export default function ExcluirFazendaPage({
   params,
 }: {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }) {
-
+  const supabase = createClient();
   const router = useRouter();
+  const { id } = use(params);
+  const [excluindo, setExcluindo] = useState(false);
 
   async function excluir() {
-
-    const { data: projetos } =
-      await supabase
-        .from("projetos")
-        .select("id")
-        .eq("fazenda_id", params.id);
-
-    if (
-      projetos &&
-      projetos.length > 0
-    ) {
-      alert(
-        `Esta fazenda possui ${projetos.length} projetos vinculados.`
-      );
-
-      return;
-    }
-
     const confirmar = confirm(
-      "Deseja excluir esta fazenda?"
+      "Deseja excluir esta fazenda? ATENÇÃO: Isso excluirá permanentemente todos os talhões, missões, pragas e intervenções vinculadas a ela."
     );
 
     if (!confirmar) return;
+    setExcluindo(true);
 
-    const { error } = await supabase
-      .from("fazendas")
-      .delete()
-      .eq("id", params.id);
+    try {
+      // Cascade delete manually (order matters due to FKs)
+      
+      // 0. Delete notificações
+      await supabase.from("notificacoes").delete().eq("fazenda_id", id);
+      
+      // 1. Delete pragas
+      await supabase.from("pragas").delete().eq("fazenda_id", id);
+      
+      // 2. Delete intervencoes
+      await supabase.from("intervencoes").delete().eq("fazenda_id", id);
 
-    if (error) {
+      // 3. Delete arquivos vinculados aos projetos da fazenda
+      const { data: projetos } = await supabase.from("projetos").select("id").eq("fazenda_id", id);
+      if (projetos && projetos.length > 0) {
+        const projetoIds = projetos.map(p => p.id);
+        await supabase.from("arquivos").delete().in("projeto_id", projetoIds);
+      }
 
-      alert(error.message);
+      // 4. Delete projetos
+      await supabase.from("projetos").delete().eq("fazenda_id", id);
 
-      return;
+      // 5. Delete talhoes
+      await supabase.from("talhoes").delete().eq("fazenda_id", id);
+
+      // 6. Finalmente, delete a fazenda
+      const { error } = await supabase.from("fazendas").delete().eq("id", id);
+
+      if (error) {
+        alert("Erro ao excluir fazenda: " + error.message);
+        setExcluindo(false);
+        return;
+      }
+
+      router.push("/dashboard/fazendas");
+      router.refresh();
+    } catch (err: any) {
+      alert("Ocorreu um erro ao excluir: " + err.message);
+      setExcluindo(false);
     }
-
-    router.push(
-      "/dashboard/fazendas"
-    );
-
-    router.refresh();
   }
 
   return (

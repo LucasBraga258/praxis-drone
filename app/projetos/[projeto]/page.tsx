@@ -1,4 +1,4 @@
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "../../../lib/supabase/server";
 import Image from "next/image";
 
 export default async function ProjetoPage({
@@ -7,6 +7,7 @@ export default async function ProjetoPage({
   params: Promise<{ projeto: string }>;
 }) {
   const { projeto } = await params;
+  const supabase = await createClient();
 
   const { data: dadosProjeto } = await supabase
     .from("projetos")

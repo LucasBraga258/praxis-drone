@@ -51,7 +51,7 @@ function ActionButton({ label, href, onClick, variant }: ActionButtonProps) {
 
 export default function MissionActions({ projetoId }: MissionActionsProps) {
   const analisar = async () => {
-    await fetch("/api/analisar-imagens", {
+    await fetch("/api/pipeline/start", {
       method: "POST",
       body: JSON.stringify({ projetoId }),
       headers: { "Content-Type": "application/json" },
@@ -68,38 +68,71 @@ export default function MissionActions({ projetoId }: MissionActionsProps) {
 
   return (
     <Card>
-      <h3 className="text-lg font-bold text-white mb-4">Ações da Missão</h3>
+      <h3 className="text-lg font-bold text-white mb-6">Ações da Missão</h3>
 
-      <div className="flex flex-wrap gap-3">
-        <ActionButton
-          label="Processar Nuvem ODM"
-          onClick={analisar}
-          variant="primary"
-        />
+      <div className="space-y-6">
+        
+        {/* Operações */}
+        <div>
+          <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Operações (Piloto / Operador)
+          </h4>
+          <div className="flex flex-wrap gap-3">
+            <ActionButton
+              label="Processar Nuvem ODM"
+              onClick={analisar}
+              variant="primary"
+            />
+            <ActionButton
+              label="Editar Configurações"
+              href={`/dashboard/projetos/${projetoId}/editar`}
+              variant="secondary"
+            />
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Inicia a fotogrametria das imagens ou ajusta parâmetros técnicos do voo.
+          </p>
+        </div>
 
-        <ActionButton
-          label="Gerar Relatório Final"
-          onClick={gerarRelatorio}
-          variant="accent"
-        />
+        {/* Análises */}
+        <div>
+          <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Análises Agronômicas (Agrônomo)
+          </h4>
+          <div className="flex flex-wrap gap-3">
+            <ActionButton
+              label="Diagnóstico IA Praxis"
+              href={`/dashboard/projetos/${projetoId}/diagnostico`}
+              variant="accent"
+            />
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Analisa anomalias, calcula o vigor vegetativo e gera um laudo preliminar da IA.
+          </p>
+        </div>
 
-        <ActionButton
-          label="Diagnóstico IA Praxis"
-          href={`/dashboard/projetos/${projetoId}/diagnostico`}
-          variant="accent"
-        />
+        {/* Entregáveis */}
+        <div>
+          <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Entregáveis (Produtor / Cliente)
+          </h4>
+          <div className="flex flex-wrap gap-3">
+            <ActionButton
+              label="Gerar Relatório Final PDF"
+              onClick={gerarRelatorio}
+              variant="primary"
+            />
+            <ActionButton
+              label="Acessar Link Público"
+              href={`/dashboard/projetos/${projetoId}/compartilhar`}
+              variant="secondary"
+            />
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Gera o documento final ou gerencia o link compartilhável com o produtor rural.
+          </p>
+        </div>
 
-        <ActionButton
-          label="Editar Configurações"
-          href={`/dashboard/projetos/${projetoId}/editar`}
-          variant="secondary"
-        />
-
-        <ActionButton
-          label="Ver Projeto Público"
-          href={`/projetos/${projetoId}`}
-          variant="secondary"
-        />
       </div>
     </Card>
   );

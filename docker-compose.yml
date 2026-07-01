@@ -6,7 +6,7 @@ services:
     image: opendronemap/nodeodm:latest
     container_name: praxis_nodeodm
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - nodeodm_data:/var/www/data
     restart: unless-stopped

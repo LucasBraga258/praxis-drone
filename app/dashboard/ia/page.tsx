@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 interface Mensagem {
   role: "user" | "model";
@@ -162,6 +162,7 @@ function TypingIndicator() {
 }
 
 export default function IAPage() {
+  const supabase = createClient();
   const [mensagens, setMensagens] = useState<Mensagem[]>([
     {
       role: "model",
@@ -196,7 +197,9 @@ export default function IAPage() {
     setCarregando(true);
 
     try {
-      const historico = mensagens.map((m) => ({ role: m.role, parts: m.content }));
+      const historico = mensagens
+        .filter((m) => m.content !== "Olá! Sou o **Assistente Agronômico Praxis**. Tenho acesso a todas as informações da sua plataforma — fazendas, talhões, missões, intervenções e muito mais.\n\nComo posso te ajudar hoje?")
+        .map((m) => ({ role: m.role, parts: m.content }));
 
       const res = await fetch("/api/ia-chat", {
         method: "POST",

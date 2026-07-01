@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import Card from "@/app/components/ui/Card";
 import Link from "next/link";
 import { toast } from "sonner";
 
 export default function PainelExecutivoIA() {
+  const supabase = createClient();
   const params = useParams();
   const router = useRouter();
   const projetoId = params.id as string;

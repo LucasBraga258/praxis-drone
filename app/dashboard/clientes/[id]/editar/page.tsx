@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function EditarClientePage({
   params,
 }: {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }) {
+  const supabase = createClient();
 
   const router = useRouter();
+  const { id } = use(params);
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -27,7 +27,7 @@ export default function EditarClientePage({
       const { data } = await supabase
         .from("clientes")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", id)
         .single();
 
       if (!data) return;
@@ -38,7 +38,7 @@ export default function EditarClientePage({
 
     carregar();
 
-  }, [params.id]);
+  }, [id]);
 
   async function salvar() {
 
@@ -50,7 +50,7 @@ export default function EditarClientePage({
         nome,
         email,
       })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (error) {
 
@@ -62,7 +62,7 @@ export default function EditarClientePage({
     }
 
     router.push(
-      `/dashboard/clientes/${params.id}`
+      `/dashboard/clientes/${id}`
     );
 
     router.refresh();

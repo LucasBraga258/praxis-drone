@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function AgronomoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = await createClient();
   const { id } = await params;
 
   const { data: agronomo } = await supabase

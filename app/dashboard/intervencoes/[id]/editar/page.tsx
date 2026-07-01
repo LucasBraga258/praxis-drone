@@ -3,13 +3,14 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function EditarIntervencaoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = createClient();
 
   const { id } = use(params);
 

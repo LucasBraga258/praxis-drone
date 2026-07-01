@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { MapContainer, TileLayer, Polygon, Popup, LayersControl, ImageOverlay } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -19,6 +19,7 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function WebGISPage() {
+  const supabase = createClient();
   const params = useParams();
   const router = useRouter();
   const projetoId = params.id as string;

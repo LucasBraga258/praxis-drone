@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { uploadFotosProjeto }
 from "../../../../../lib/services/upload";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { validarFotos }
 from "../../../../../lib/services/missionValidator";
@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 const UploadMap = dynamic(() => import("@/app/components/UploadMap"), { ssr: false });
 
 export default function UploadPage() {
+  const supabase = createClient();
   const params = useParams();
   const projetoId = params.id as string;
 

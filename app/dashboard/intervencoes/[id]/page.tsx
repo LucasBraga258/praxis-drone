@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import Card from "@/app/components/ui/Card";
 import Link from "next/link";
 
 export default function IntervencaoViewPage() {
+  const supabase = createClient();
   const params = useParams();
   const router = useRouter();
   const intervencaoId = params.id as string;

@@ -1,13 +1,20 @@
 import Link from "next/link";
 import PageHeader from "@/app/components/ui/PageHeader";
-import {
-  listarMissoes,
-  Missao,
-} from "../../../lib/services/projetos";
 import MissionCard from "./components/MissionCard";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ProjetosPage() {
-  const projetos = await listarMissoes();
+  const supabase = await createClient();
+  const { data: projetos } = await supabase
+    .from("projetos")
+    .select(`
+      *,
+      fazendas ( id, nome ),
+      jobs_processamento ( etapa, status, progresso, ordem )
+    `)
+    .order("created_at", { ascending: false });
+
+  const missoes = projetos || [];
 
   return (
     <main className="min-h-screen bg-[#07111F] text-white p-8">
@@ -36,7 +43,7 @@ export default async function ProjetosPage() {
 
       <div className="grid lg:grid-cols-2 gap-6">
 
-    {projetos.map((projeto) => (
+    {missoes.map((projeto) => (
 
         <MissionCard
             key={projeto.id}

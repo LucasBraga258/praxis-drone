@@ -1,5 +1,6 @@
-import { supabase } from "../supabase";
+import { createClient } from "../supabase/client";
 
+const supabase = createClient();
 export async function carregarDashboard(periodo: number) {
   const dataLimite = new Date();
 

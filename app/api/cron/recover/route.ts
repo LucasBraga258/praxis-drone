@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { processarFila } from "@/lib/services/pipeline";
 import { logProcess } from "@/lib/services/processManager";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const supabase = await createClient();
   // Define o limite temporal: 4 horas sem alteração = Zumbi
   const quatroHorasAtras = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   

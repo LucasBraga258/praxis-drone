@@ -1,7 +1,8 @@
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import DashboardCharts from "./DashboardCharts";
 
 export default async function DashboardChartsServer() {
+  const supabase = await createClient();
   const [{ data: fazendas }, { data: projetos }] = await Promise.all([
     supabase.from("fazendas").select("status_saude, cultura"),
     supabase.from("projetos").select("data_voo, status"),

@@ -1,4 +1,4 @@
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { Toaster } from "sonner";
 import Sidebar from "./components/Sidebar";
 import Link from "next/link";
@@ -8,6 +8,19 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  let userProfile = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("perfis_usuarios")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    userProfile = profile;
+  }
+
   const { count: notificacoesNaoLidas } = await supabase
     .from("notificacoes")
     .select("*", { count: "exact", head: true })
@@ -16,7 +29,7 @@ export default async function DashboardLayout({
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
       {/* Fixed Sidebar */}
-      <Sidebar notificacoes={notificacoesNaoLidas ?? 0} />
+      <Sidebar notificacoes={notificacoesNaoLidas ?? 0} userProfile={userProfile} />
 
       {/* Main area offset by sidebar */}
       <div className="praxis-main">
@@ -100,8 +113,10 @@ export default async function DashboardLayout({
               }}
             />
 
-            {/* User Avatar */}
-            <div
+            {/* User Avatar linking to Admin Panel */}
+            <Link
+              href="/dashboard/admin"
+              className="hover:border-slate-500"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -111,6 +126,8 @@ export default async function DashboardLayout({
                 background: "var(--bg-card)",
                 border: "1px solid var(--bg-border)",
                 cursor: "pointer",
+                textDecoration: "none",
+                transition: "all 0.2s",
               }}
             >
               <div
@@ -149,10 +166,10 @@ export default async function DashboardLayout({
                     lineHeight: 1.2,
                   }}
                 >
-                  Administrador
+                  Admin Master
                 </div>
               </div>
-            </div>
+            </Link>
           </div>
         </header>
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { carregarDashboard } from "../../lib/services/dashboard";
 import { listarMissoes } from "../../lib/services/projetos";
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import DashboardChartsServer from "./DashboardChartsServer";
 import DashboardHierarchy from "./components/DashboardHierarchy";
 
@@ -10,6 +10,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ periodo?: string }>;
 }) {
+  const supabase = await createClient();
   const params = await searchParams;
   const periodo = Number(params.periodo || "30");
 

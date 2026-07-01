@@ -23,10 +23,17 @@ export async function POST(req: NextRequest) {
     const resposta = await enviarMensagemIA(pergunta, historico, contexto);
 
     return NextResponse.json({ resposta });
-  } catch (error) {
-    console.error("[ia-chat] Erro:", error);
+  } catch (error: any) {
+    console.error("[ia-chat] Erro:", error.message || error);
+    let msgErro = "Erro técnico na IA: " + (error.message || "Desconhecido");
+    
+    // Tratamento mais amigável para estouro de limite (Google API 429)
+    if (msgErro.includes("429") || msgErro.includes("quota") || msgErro.includes("RESOURCE_EXHAUSTED")) {
+      msgErro = "⚠️ O limite de uso gratuito da Inteligência Artificial (Google Gemini) foi excedido. Para continuar utilizando a IA Praxis, adicione informações de faturamento no seu projeto do Google Cloud / AI Studio.";
+    }
+
     return NextResponse.json(
-      { erro: "Erro ao processar a resposta da IA." },
+      { resposta: msgErro },
       { status: 500 }
     );
   }

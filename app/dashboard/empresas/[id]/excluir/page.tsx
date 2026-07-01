@@ -3,13 +3,14 @@
 import { use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ExcluirEmpresaPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = createClient();
 
   const { id } = use(params);
 

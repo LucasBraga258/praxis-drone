@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "../../../lib/supabase/server";
 
 export default async function FazendaPage({
   params,
@@ -7,6 +7,7 @@ export default async function FazendaPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const supabase = await createClient();
 
   const { data: fazenda } = await supabase
     .from("fazendas")

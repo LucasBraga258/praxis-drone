@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ClientePage({
   params,
@@ -8,6 +8,7 @@ export default async function ClientePage({
     id: string;
   }>;
 }) {
+  const supabase = await createClient();
 
   const { id } = await params;
 

@@ -1,4 +1,6 @@
-import { supabase } from "../supabase";
+import { createClient } from "../supabase/client";
+
+const supabase = createClient();
 import { criarPipelineProjeto } from "./processamento";
 
 export interface Missao {
@@ -102,7 +104,8 @@ export async function buscarProjeto(projetoId: number) {
     .from("projetos")
     .select(`
       *,
-      fazendas (*),
+      fazendas (id, nome, cidade, estado),
+      talhoes (id, nome, cultura, variedade, safra, area),
       arquivos_projeto (*),
       jobs_processamento (*)
     `)
@@ -110,6 +113,7 @@ export async function buscarProjeto(projetoId: number) {
     .single();
 
   if (error) throw error;
+
 
   const {
     data: intervencoes,

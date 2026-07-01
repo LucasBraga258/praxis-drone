@@ -1,12 +1,16 @@
-import { supabase } from "../supabase";
+import { createClient } from "../supabase/client";
 
+const supabase = createClient();
 export async function buscarPipelineProjeto(projetoId: number) {
   // Busca a situação atual da Máquina de Estados (Sprint 6)
-  const { data: job, error } = await supabase
+  const { data, error } = await supabase
     .from("mission_jobs")
     .select("*")
     .eq("projeto_id", projetoId)
-    .single();
+    .order("created_at", { ascending: false })
+    .limit(1);
+    
+  const job = data?.[0];
 
   // Mapeamento visual das etapas
   const etapasDefinidas = [

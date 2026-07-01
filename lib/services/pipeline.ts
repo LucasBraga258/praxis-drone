@@ -1,6 +1,10 @@
 import { iniciarJob, atualizarStatusJob, logProcess, registrarTentativa, isAlguemProcessando, buscarProximoDaFila, gerarNotificacao } from "./processManager";
+import { createClient } from "../supabase/client";
+import { supabaseAdmin } from "../supabase/admin";
 import { runFullSystemCheck } from "./health";
 import { analisarMissao } from "./ai/praxisEngine";
+
+const supabase = supabaseAdmin;
 
 /**
  * Função de Entrada Pública: Apenas coloca na fila e tenta rodar a fila.
@@ -54,7 +58,63 @@ async function rodarMissaoNoMotor(jobId: string, projetoId: string) {
 
     // 3. Etapa: Processamento NodeODM
     await executarComRetentativas(jobId, projetoId, "NODEODM", async () => {
-      await new Promise(res => setTimeout(res, 3000));
+      // 3.1 Pegar lista de arquivos do projeto
+      const { data: arquivos, error: errArq } = await supabaseAdmin
+        .from("arquivos_projeto")
+        .select("*")
+        .eq("projeto_id", projetoId);
+        
+      if (errArq || !arquivos || arquivos.length === 0) throw new Error("Nenhum arquivo encontrado para esta missão.");
+
+      // 3.2 Baixar as imagens do Supabase Storage
+      const { iniciarProcessamentoODM, verificarStatusODM } = await import("./odm");
+      const blobs: { nome: string; blob: Blob }[] = [];
+      
+      for (const arq of arquivos) {
+        const { data: fileData, error: dlError } = await supabaseAdmin.storage
+          .from("missoes")
+          .download(arq.caminho);
+          
+        if (dlError || !fileData) throw new Error(`Falha ao baixar imagem: ${arq.nome}`);
+        blobs.push({ nome: arq.nome, blob: fileData });
+      }
+
+      // 3.3 Iniciar processamento no NodeODM
+      const odm_uuid = await iniciarProcessamentoODM(blobs, { 
+        name: `Missao-${projetoId}`,
+        options: {
+          dsm: true,
+          dtm: true,
+          "plant-health": true
+        }
+      });
+      
+      // 3.4 Salvar UUID no banco
+      await supabaseAdmin.from("mission_jobs").update({ odm_uuid }).eq("id", jobId);
+
+      // 3.5 Atualizar o status para processamento fotogramétrico
+      await supabaseAdmin.from("mission_jobs").update({ status: "ODM_PROCESSING" }).eq("id", jobId);
+      
+      // 3.6 Polling até concluir
+      let concluido = false;
+      while (!concluido) {
+        await new Promise(res => setTimeout(res, 15000)); // Espera 15 seg
+        const statusInfo = await verificarStatusODM(odm_uuid);
+        
+        if (statusInfo.status.code === 40) {
+          concluido = true;
+          
+          // Salvar as URLs geradas (por enquanto, link direto pro ODM)
+          const baseODM = process.env.NEXT_PUBLIC_ODM_API_URL || "http://127.0.0.1:3001";
+          await supabaseAdmin.from("projetos").update({
+            ortomosaico_url: `${baseODM}/task/${odm_uuid}/download/orthophoto.tif`,
+            dsm_url: `${baseODM}/task/${odm_uuid}/download/dsm.tif`
+          }).eq("id", projetoId);
+          
+        } else if (statusInfo.status.code === 30 || statusInfo.status.code === 50) {
+          throw new Error(`NodeODM falhou: ${statusInfo.status.error}`);
+        }
+      }
     });
 
     // 4. Etapa: IA Praxis (Diagnóstico Inteligente e Automático)
@@ -68,6 +128,7 @@ async function rodarMissaoNoMotor(jobId: string, projetoId: string) {
     });
 
     // 6. Sucesso!
+    await supabaseAdmin.from("projetos").update({ status: "CONCLUIDO" }).eq("id", projetoId);
     await atualizarStatusJob(jobId, "COMPLETED", "FINALIZADO");
     await logProcess(jobId, projetoId, "Pipeline Concluído", "SUCCESS", "Missão 100% processada sem intervenção manual.");
     await gerarNotificacao(projetoId, "SUCESSO", "Relatório Disponível", "Seus mapas e o diagnóstico inteligente da IA estão prontos para visualização.");

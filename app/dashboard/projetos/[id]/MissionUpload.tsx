@@ -1,22 +1,40 @@
 "use client";
 
+/**
+ * MissionUpload — Componente de Upload Premium
+ *
+ * Fluxo:
+ * 1. Drag & Drop de fotos
+ * 2. Validação (Mission Validator)
+ * 3. Extração EXIF automática (mostra preview das coords)
+ * 4. Upload com progresso detalhado
+ * 5. Após upload: emite callback com dados do voo para o mapa
+ */
+
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Card from "@/app/components/ui/Card";
 import { uploadFotosProjeto } from "@/lib/services/upload";
+import type { UploadResultado } from "@/lib/services/upload";
 import { validarFotos } from "@/lib/services/missionValidator";
 import type { ResultadoValidacao } from "@/lib/services/missionValidator/interfaces";
 import ValidacaoMissao from "@/app/components/ValidacaoMissao";
 
 interface MissionUploadProps {
   projetoId: number;
+  onUploadConcluido?: (resultado: UploadResultado) => void;
 }
 
-export default function MissionUpload({ projetoId }: MissionUploadProps) {
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export default function MissionUpload({ projetoId, onUploadConcluido }: MissionUploadProps) {
   const router = useRouter();
-  
+
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [resultadoValidacao, setResultadoValidacao] = useState<ResultadoValidacao | null>(null);
   const [validando, setValidando] = useState(false);
@@ -24,13 +42,18 @@ export default function MissionUpload({ projetoId }: MissionUploadProps) {
   const [progresso, setProgresso] = useState(0);
   const [arquivoAtual, setArquivoAtual] = useState("");
   const [totalEnviado, setTotalEnviado] = useState(0);
+  const [fase, setFase] = useState<"upload" | "exif" | "concluido">("upload");
+  const [concluido, setConcluido] = useState(false);
+
+  const tamanhoTotal = arquivos.reduce((acc, f) => acc + f.size, 0);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
-    
+
     setValidando(true);
     setArquivos(acceptedFiles);
-    
+    setConcluido(false);
+
     try {
       const resultado = await validarFotos(acceptedFiles);
       setResultadoValidacao(resultado);
@@ -49,6 +72,7 @@ export default function MissionUpload({ projetoId }: MissionUploadProps) {
       "image/tiff": [".tif", ".tiff"],
     },
     disabled: enviando || validando,
+    multiple: true,
   });
 
   const enviarArquivos = async () => {
@@ -57,32 +81,39 @@ export default function MissionUpload({ projetoId }: MissionUploadProps) {
       return;
     }
 
-    // Se houver erros graves, confirmar
     if (resultadoValidacao?.erros && resultadoValidacao.erros.length > 0) {
-      const confirmar = window.confirm("Existem erros na validação. Deseja enviar mesmo assim?");
+      const confirmar = window.confirm(
+        "Existem erros na validação. Deseja enviar mesmo assim?"
+      );
       if (!confirmar) return;
     }
 
     try {
       setEnviando(true);
 
-      await uploadFotosProjeto(
+      const resultado = await uploadFotosProjeto(
         projetoId,
         arquivos,
         (progress) => {
           setProgresso(progress.percentual);
           setArquivoAtual(progress.arquivoAtual);
           setTotalEnviado(progress.enviados);
+          setFase(progress.fase);
         }
       );
 
-      toast.success(`${arquivos.length} fotos enviadas com sucesso!`);
+      toast.success(
+        `✅ ${resultado.totalEnviadas} fotos enviadas! ${resultado.totalComGPS > 0 ? `📍 ${resultado.totalComGPS} com GPS.` : ""}`
+      );
+
+      setConcluido(true);
       setArquivos([]);
       setResultadoValidacao(null);
-      
-      // Atualizar a página para buscar os novos dados
+      onUploadConcluido?.(resultado);
+
+      // Refrescar a página para buscar dados atualizados
       router.refresh();
-      
+
     } catch (error: any) {
       console.error(error);
       toast.error(error.message ?? "Erro ao enviar arquivos.");
@@ -97,92 +128,214 @@ export default function MissionUpload({ projetoId }: MissionUploadProps) {
   const cancelarUpload = () => {
     setArquivos([]);
     setResultadoValidacao(null);
+    setConcluido(false);
   };
+
+  // ── Estado: Concluído ──
+  if (concluido) {
+    return (
+      <Card>
+        <div style={{ textAlign: "center", padding: "24px 0" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
+            Upload Concluído!
+          </h3>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            As fotos foram enviadas e o processamento foi iniciado automaticamente.
+          </p>
+          <button
+            onClick={cancelarUpload}
+            style={{
+              marginTop: 16,
+              padding: "8px 20px",
+              background: "var(--bg-hover)",
+              border: "1px solid var(--bg-border)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            Enviar mais fotos
+          </button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold text-white">Upload de Imagens</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: "var(--text-primary)" }}>
+          📤 Upload de Imagens
+        </h2>
         {arquivos.length > 0 && !enviando && (
-          <button 
+          <button
             onClick={cancelarUpload}
-            className="text-sm text-slate-400 hover:text-white transition-colors"
+            style={{ fontSize: 12, color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
           >
-            Limpar seleção
+            Limpar
           </button>
         )}
       </div>
 
-      {arquivos.length === 0 ? (
+      {/* ── Estado: Enviando ── */}
+      {enviando && (
+        <div style={{ marginBottom: 20 }}>
+          {/* Fase indicador */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            {(["exif", "upload", "concluido"] as const).map((f) => (
+              <div
+                key={f}
+                style={{
+                  flex: 1,
+                  height: 3,
+                  borderRadius: 999,
+                  background: fase === f
+                    ? "var(--praxis-green-500)"
+                    : (fase === "upload" && f === "exif") || (fase === "concluido")
+                    ? "var(--praxis-green-500)"
+                    : "var(--bg-hover)",
+                  transition: "all 0.4s",
+                }}
+              />
+            ))}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+              {fase === "exif" ? "🔍 Extraindo GPS..." :
+               fase === "upload" ? "☁️ Enviando para a nuvem..." :
+               "✅ Finalizando..."}
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#4ade80" }}>
+              {progresso}%
+            </span>
+          </div>
+
+          <div style={{ height: 8, background: "var(--bg-surface)", borderRadius: 999, overflow: "hidden", marginBottom: 10 }}>
+            <div
+              style={{
+                height: "100%",
+                borderRadius: 999,
+                background: "linear-gradient(90deg, #22c55e, #16a34a)",
+                width: `${progresso}%`,
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
+            <span style={{ maxWidth: "70%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {arquivoAtual}
+            </span>
+            <span>
+              {fase === "upload" ? `${totalEnviado} / ${arquivos.length}` : ""}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Estado: Sem arquivos (dropzone) ── */}
+      {arquivos.length === 0 && !enviando && (
         <div
           {...getRootProps()}
-          className={`
-            border-2 border-dashed rounded-xl h-44
-            flex flex-col items-center justify-center
-            transition-colors duration-200 cursor-pointer
-            ${isDragActive 
-              ? "border-emerald-500 bg-emerald-900/10" 
-              : "border-slate-600 hover:border-emerald-600"
-            }
-          `}
+          style={{
+            border: `2px dashed ${isDragActive ? "#22c55e" : "rgba(255,255,255,0.1)"}`,
+            borderRadius: 14,
+            padding: "40px 24px",
+            textAlign: "center",
+            cursor: "pointer",
+            background: isDragActive ? "rgba(34,197,94,0.05)" : "transparent",
+            transition: "all 0.2s ease",
+          }}
         >
           <input {...getInputProps()} />
-          <p className="text-lg text-slate-300 font-medium">
-            Arraste uma pasta aqui
+          <div style={{ fontSize: 36, marginBottom: 12 }}>
+            {isDragActive ? "📂" : "📷"}
+          </div>
+          <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>
+            {isDragActive ? "Solte as fotos aqui" : "Arraste as fotos do voo"}
           </p>
-          <p className="text-slate-500 text-sm mt-2">
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
             ou clique para selecionar arquivos
           </p>
-          <p className="text-xs text-slate-600 mt-4">
-            JPG, JPEG, TIFF — máximo recomendado: 2000 imagens
+          <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
+            JPG, JPEG, TIFF — até 2000 imagens
           </p>
         </div>
-      ) : (
-        <div className="space-y-6">
+      )}
+
+      {/* ── Estado: Arquivos selecionados ── */}
+      {arquivos.length > 0 && !enviando && (
+        <div style={{ marginBottom: 20 }}>
           {validando ? (
-            <div className="flex flex-col items-center justify-center py-10 bg-[#0F1C30] rounded-xl border border-slate-700">
-              <div className="animate-spin w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full mb-4"></div>
-              <p className="text-white font-medium">Extraindo metadados...</p>
-              <p className="text-slate-500 text-sm mt-1">Analisando {arquivos.length} fotos</p>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 0" }}>
+              <div className="animate-spin" style={{ width: 32, height: 32, border: "3px solid #22c55e", borderTopColor: "transparent", borderRadius: "50%", marginBottom: 12 }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Analisando metadados...</p>
+              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{arquivos.length} fotos selecionadas</p>
             </div>
           ) : (
             <>
-              {resultadoValidacao && <ValidacaoMissao resultado={resultadoValidacao} />}
-              
-              {!enviando && (
-                <div className="flex justify-end mt-4">
-                  <button
-                    onClick={enviarArquivos}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-medium transition-colors"
-                  >
-                    Iniciar Upload ({arquivos.length} fotos)
-                  </button>
+              {/* Resumo da seleção */}
+              <div
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--bg-border)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  marginBottom: 16,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Fotos</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>{arquivos.length}</div>
                 </div>
-              )}
+                <div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Tamanho total</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>{formatBytes(tamanhoTotal)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Formato</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#4ade80" }}>
+                    {arquivos[0]?.name.split(".").pop()?.toUpperCase() ?? "JPG"}
+                  </div>
+                </div>
+              </div>
+
+              {resultadoValidacao && <ValidacaoMissao resultado={resultadoValidacao} />}
             </>
           )}
-
-          {enviando && (
-            <div className="bg-[#0F1C30] p-5 rounded-xl border border-slate-700">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-white font-medium">Enviando arquivos...</span>
-                <span className="text-emerald-400 font-bold">{progresso}%</span>
-              </div>
-              
-              <div className="w-full bg-[#16253D] rounded-full h-3 overflow-hidden mb-3">
-                <div 
-                  className="bg-emerald-500 h-3 transition-all duration-300"
-                  style={{ width: `${progresso}%` }}
-                />
-              </div>
-              
-              <div className="flex justify-between text-xs text-slate-400">
-                <span className="truncate max-w-[70%]">Processando: {arquivoAtual}</span>
-                <span>{totalEnviado} / {arquivos.length}</span>
-              </div>
-            </div>
-          )}
         </div>
+      )}
+
+      {/* ── Botão de upload ── */}
+      {arquivos.length > 0 && !enviando && !validando && (
+        <button
+          onClick={enviarArquivos}
+          style={{
+            width: "100%",
+            padding: "13px",
+            background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+            border: "none",
+            borderRadius: "var(--radius-md)",
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(34,197,94,0.3)",
+            transition: "all 0.2s ease",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          🚀 Iniciar Upload e Processamento ({arquivos.length} fotos)
+        </button>
       )}
     </Card>
   );

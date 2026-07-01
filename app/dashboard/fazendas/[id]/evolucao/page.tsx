@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import Card from "@/app/components/ui/Card";
 import Badge from "@/app/components/ui/Badge";
 
 export default async function FazendaEvolucaoPage({ params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createClient();
   const { id } = await params;
 
   // Busca as comparações dessa fazenda

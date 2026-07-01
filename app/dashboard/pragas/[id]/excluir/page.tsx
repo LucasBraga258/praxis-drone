@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import Card from "@/app/components/ui/Card";
 import { toast } from "sonner";
 
 export default function PragaExcluirPage() {
+  const supabase = createClient();
   const params = useParams();
   const router = useRouter();
   const pragaId = params.id as string;
@@ -15,13 +16,18 @@ export default function PragaExcluirPage() {
   async function confirmarExclusao() {
     setExcluindo(true);
     try {
+      // 1. Apagar intervenções vinculadas à praga para evitar erro de FK constraint
+      await supabase.from("intervencoes").delete().eq("praga_id", pragaId);
+
+      // 2. Apagar a praga
       const { error } = await supabase.from("pragas").delete().eq("id", pragaId);
       if (error) throw error;
       toast.success("Registro de praga excluído com sucesso.");
       router.push("/dashboard/pragas"); // Redireciona para a lista geral caso exista
-    } catch (err) {
+      router.refresh();
+    } catch (err: any) {
       console.error(err);
-      toast.error("Erro ao excluir praga.");
+      toast.error("Erro ao excluir praga: " + err.message);
       setExcluindo(false);
     }
   }

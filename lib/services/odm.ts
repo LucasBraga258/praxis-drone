@@ -7,14 +7,14 @@
  */
 
 // A URL da API do NodeODM será preferencialmente injetada via variável de ambiente.
-const ODM_API_URL = process.env.NEXT_PUBLIC_ODM_API_URL || "http://localhost:3000";
+const ODM_API_URL = process.env.NEXT_PUBLIC_ODM_API_URL || "http://127.0.0.1:3001";
 
 export interface ODMTaskOptions {
   name?: string;
   // Para geração de NDVI usando o motor nativo (se a câmera for suportada)
   radiometricCalibration?: "none" | "camera" | "camera+sun";
-  // Flags avançadas do ODM (ex: --dsm --orthophoto-resolution 2.0)
-  options?: string; 
+  // Flags avançadas do ODM (ex: { dsm: true, "plant-health": true })
+  options?: Record<string, any>; 
   webhook?: string;
 }
 
@@ -29,9 +29,9 @@ export interface ODMTaskInfo {
 }
 
 /**
- * Inicia um novo processamento no ODM enviando um array de arquivos (Imagens)
+ * Inicia um novo processamento no ODM enviando um array de blobs (Imagens baixadas do Storage)
  */
-export async function iniciarProcessamentoODM(imagens: File[], config?: ODMTaskOptions): Promise<string> {
+export async function iniciarProcessamentoODM(imagens: { nome: string; blob: Blob }[], config?: ODMTaskOptions): Promise<string> {
   const formData = new FormData();
   
   if (config?.options) formData.append("options", JSON.stringify([config.options]));
@@ -39,8 +39,8 @@ export async function iniciarProcessamentoODM(imagens: File[], config?: ODMTaskO
   if (config?.webhook) formData.append("webhook", config.webhook);
 
   // Anexar todas as imagens ao FormData (o NodeODM espera o campo "images")
-  imagens.forEach((file) => {
-    formData.append("images", file);
+  imagens.forEach((img) => {
+    formData.append("images", img.blob, img.nome);
   });
 
   try {
@@ -80,8 +80,8 @@ export async function verificarStatusODM(taskId: string): Promise<ODMTaskInfo> {
       uuid: data.uuid,
       name: data.name,
       status: {
-        code: data.status.code,
-        error: data.status.error,
+        code: data.status?.code,
+        error: data.status?.error,
       },
       processingTime: data.processingTime,
     };

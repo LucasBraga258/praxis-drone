@@ -1,4 +1,4 @@
-import { supabase } from "../../supabase";
+import { supabaseAdmin as supabase } from "../../supabase/admin";
 
 /**
  * Motor de IA Heurístico: Comparação Temporal (Sprint 8)

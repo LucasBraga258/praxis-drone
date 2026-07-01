@@ -1,162 +1,75 @@
-import { GoogleGenAI } from "@google/genai";
-import { supabase } from "../../supabase";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_KEY! });
+import { DashboardDBService } from "./dbService";
+import { AIProviderFactory } from "./AIProviderFactory";
+import { Logger } from "../../utils/logger";
 
 interface ChatContext {
   fazendaId?: number;
   talhaoId?: number;
-  projetoId?: number;
+  projetoId?: string;
 }
 
 /**
- * Busca todo o contexto relevante da propriedade para montar o prompt da IA.
+ * Busca todo o contexto da fazenda ou geral de forma estruturada.
  */
-export async function buscarContextoPropriedade(ctx: ChatContext): Promise<string> {
-  const partes: string[] = [];
+export async function buscarContextoPropriedade({
+  fazendaId,
+  talhaoId,
+  projetoId,
+}: ChatContext) {
+  try {
+    let contexto = "";
 
-  // Contexto geral
-  const [
-    { data: fazendas },
-    { data: clientes },
-    { count: totalMissoes },
-  ] = await Promise.all([
-    supabase.from("fazendas").select("id, nome, area_ha, cultura, status_saude, municipio, uf, proximo_voo").limit(20),
-    supabase.from("clientes").select("id, nome").limit(20),
-    supabase.from("projetos").select("*", { count: "exact", head: true }),
-  ]);
+    // 1. Contexto Específico do Talhão
+    if (talhaoId) {
+      const contextoTalhao = await DashboardDBService.getContextoTalhao(talhaoId);
+      if (contextoTalhao) {
+        contexto += `**Foco da conversa:** Talhão "${contextoTalhao.talhao.nome}" (Cultura: ${contextoTalhao.talhao.cultura}, Área: ${contextoTalhao.talhao.area_ha || contextoTalhao.talhao.area || 0} ha).\n`;
+        contexto += `Possui ${contextoTalhao.missoes.length} missão(ões) vinculada(s).\n\n`;
+      }
+    }
 
-  partes.push(`## Plataforma Praxis — Contexto Geral
-- Total de missões registradas: ${totalMissoes || 0}
-- Clientes cadastrados: ${clientes?.map((c) => c.nome).join(", ") || "Nenhum"}
-`);
+    // 2. Contexto da Fazenda
+    if (fazendaId) {
+      const contextoFazenda = await DashboardDBService.getContextoFazenda(fazendaId);
+      if (contextoFazenda) {
+        contexto += `**Fazenda selecionada:** ${contextoFazenda.fazenda.nome} (${contextoFazenda.fazenda.municipio}-${contextoFazenda.fazenda.uf})\n`;
+        contexto += `Área total: ${contextoFazenda.fazenda.area_ha || 0} ha. Cultura principal: ${contextoFazenda.fazenda.cultura || "—"}.\n`;
+        contexto += `Status de Saúde: ${contextoFazenda.fazenda.status_saude || "—"}.\n`;
+        contexto += `Possui ${contextoFazenda.talhoes.length} talhões cadastrados.\n`;
+        contexto += `Missões de drone recentes: ${contextoFazenda.missoesRecentes.length}.\n`;
+        contexto += `Intervenções agronômicas: ${contextoFazenda.intervencoesRecentes.length}.\n`;
+        
+        if (contextoFazenda.pragasAtivas.length > 0) {
+          contexto += `⚠️ ALERTA: Há ${contextoFazenda.pragasAtivas.length} pragas/doenças não resolvidas registradas.\n`;
+        }
+        contexto += "\n";
+      }
+    }
 
-  if (fazendas && fazendas.length > 0) {
-    partes.push("## Fazendas\n" + fazendas.map((f) =>
-      `- **${f.nome}** (${f.municipio || ""}/${f.uf || ""}) — ${f.area_ha || 0} ha — Cultura: ${f.cultura || "—"} — Saúde: ${f.status_saude || "—"} — Próximo Voo: ${f.proximo_voo || "—"}`
-    ).join("\n"));
+    // 3. Contexto Geral da Plataforma (se não filtrou por fazenda/talhão)
+    if (!fazendaId && !talhaoId) {
+      const contextoGeral = await DashboardDBService.getContextoGeral();
+      contexto += `**Visão Geral do Sistema Praxis**\n`;
+      contexto += `- Total de Clientes: ${contextoGeral.clientes.length}\n`;
+      contexto += `- Total de Fazendas: ${contextoGeral.fazendas.length}\n`;
+      contexto += `- Total de Missões de Drone: ${contextoGeral.totalMissoes}\n\n`;
+    }
+
+    return contexto || "Nenhum dado específico selecionado. Responda de forma geral sobre a plataforma Praxis.";
+  } catch (error) {
+    Logger.error("Erro ao montar contexto para a IA", error);
+    return "Não foi possível carregar o contexto da plataforma.";
   }
-
-  // Contexto específico se selecionado
-  if (ctx.fazendaId) {
-    const [
-      { data: fazenda },
-      { data: talhoes },
-      { data: projetos },
-      { data: intervencoes },
-      { data: pragas },
-    ] = await Promise.all([
-      supabase.from("fazendas").select("*").eq("id", ctx.fazendaId).single(),
-      supabase.from("talhoes").select("*").eq("fazenda_id", ctx.fazendaId),
-      supabase.from("projetos").select("*").eq("fazenda_id", ctx.fazendaId).order("data_voo", { ascending: false }).limit(10),
-      supabase.from("intervencoes").select("*").eq("fazenda_id", ctx.fazendaId).order("data_intervencao", { ascending: false }).limit(10),
-      supabase.from("pragas").select("*").eq("fazenda_id", ctx.fazendaId).neq("status", "Resolvida"),
-    ]);
-
-    if (fazenda) {
-      partes.push(`\n## Fazenda Selecionada: ${fazenda.nome}
-- Área: ${fazenda.area_ha || "—"} ha
-- Município: ${fazenda.municipio || "—"}/${fazenda.uf || "—"}
-- Cultura: ${fazenda.cultura || "—"}
-- Saúde: ${fazenda.status_saude || "—"}
-- Próximo Voo: ${fazenda.proximo_voo || "—"}
-`);
-    }
-
-    if (talhoes && talhoes.length > 0) {
-      partes.push("## Talhões\n" + talhoes.map((t) =>
-        `- **${t.nome}** — Cultura: ${t.cultura || "—"} — Área: ${t.area || "—"} ha — Safra: ${t.safra || "—"}`
-      ).join("\n"));
-    }
-
-    if (projetos && projetos.length > 0) {
-      partes.push("## Missões Recentes\n" + projetos.map((p) =>
-        `- Missão **${p.codigo}** em ${p.data_voo || "—"} — Status: ${p.status} — Área: ${p.area_mapeada || "—"} ha — Alto Vigor: ${p.alto_vigor || 0}% / Médio: ${p.medio_vigor || 0}% / Baixo: ${p.baixo_vigor || 0}%`
-      ).join("\n"));
-    }
-
-    if (intervencoes && intervencoes.length > 0) {
-      partes.push("## Intervenções\n" + intervencoes.map((i) =>
-        `- ${i.data_intervencao || "—"}: ${i.tipo || "Intervenção"} — Produto: ${i.produto || "—"} — Dose: ${i.dose || "—"}`
-      ).join("\n"));
-    }
-
-    if (pragas && pragas.length > 0) {
-      partes.push("## Pragas Ativas\n" + pragas.map((p) =>
-        `- ${p.nome || p.tipo || "Praga"} — Severidade: ${p.severidade || "—"} — Status: ${p.status}`
-      ).join("\n"));
-    }
-  }
-
-  if (ctx.talhaoId) {
-    const [{ data: talhao }, { data: missoes }] = await Promise.all([
-      supabase.from("talhoes").select("*").eq("id", ctx.talhaoId).single(),
-      supabase.from("projetos").select("*").eq("talhao_id", ctx.talhaoId).order("data_voo", { ascending: false }).limit(5),
-    ]);
-
-    if (talhao) {
-      partes.push(`\n## Talhão Selecionado: ${talhao.nome}
-- Área: ${talhao.area || "—"} ha
-- Cultura: ${talhao.cultura || "—"}
-- Variedade: ${talhao.variedade || "—"}
-- Safra: ${talhao.safra || "—"}
-`);
-    }
-
-    if (missoes && missoes.length > 0) {
-      partes.push("## Histórico do Talhão\n" + missoes.map((m) =>
-        `- ${m.data_voo || "—"}: ${m.codigo} — NDVI Alto: ${m.alto_vigor || 0}% / Médio: ${m.medio_vigor || 0}% / Baixo: ${m.baixo_vigor || 0}%`
-      ).join("\n"));
-    }
-  }
-
-  return partes.join("\n\n");
 }
 
 /**
- * Envia uma mensagem para a IA com contexto da propriedade.
+ * Envia uma mensagem para a IA utilizando a arquitetura Híbrida (Factory).
  */
 export async function enviarMensagemIA(
   pergunta: string,
   historico: { role: "user" | "model"; parts: string }[],
   contexto: string
 ): Promise<string> {
-  const systemInstruction = `Você é o **Assistente Agronômico Praxis** — um especialista em Agricultura de Precisão.
-
-Você tem acesso a dados reais da plataforma Praxis sobre fazendas, talhões, missões de drone, intervenções e pragas.
-
-**Regras:**
-- Responda sempre em português brasileiro
-- Seja objetivo e profissional, mas acessível ao produtor rural
-- NUNCA tome decisões — apenas apresente informações e análises
-- Baseie suas respostas nos dados fornecidos
-- Se não tiver dados suficientes, diga claramente
-- Use formatação markdown quando útil (listas, negrito)
-- Responda em no máximo 3 parágrafos, a menos que o usuário peça detalhes
-
-**Contexto atual da plataforma:**
-${contexto}`;
-
-  const contents = [
-    ...historico.map((h) => ({
-      role: h.role,
-      parts: [{ text: h.parts }],
-    })),
-    {
-      role: "user" as const,
-      parts: [{ text: pergunta }],
-    },
-  ];
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
-    contents,
-    config: {
-      systemInstruction,
-      maxOutputTokens: 1024,
-      temperature: 0.4,
-    },
-  });
-
-  return response.text ?? "Não consegui gerar uma resposta. Tente novamente.";
+  const factory = AIProviderFactory.getInstance();
+  return factory.generateResponse(pergunta, historico, contexto);
 }

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function NovoAgronomoPage() {
+  const supabase = createClient();
 
   const router = useRouter();
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import Card from "@/app/components/ui/Card";
 import Badge from "@/app/components/ui/Badge";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ interface JobRow {
 }
 
 export default function AdminDashboardPage() {
+  const supabase = createClient();
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [health, setHealth] = useState({ db: true, storage: true, odm: true });
@@ -116,7 +117,7 @@ export default function AdminDashboardPage() {
           <div className={`w-4 h-4 rounded-full ${health.odm ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
           <div>
             <h3 className="text-lg font-bold text-slate-200">Worker NodeODM</h3>
-            <p className="text-xs text-slate-400">{health.odm ? 'Renderizador Pronto' : 'OFFLINE / PORTA 3000 OCUPADA'}</p>
+            <p className="text-xs text-slate-400">{health.odm ? 'Renderizador Pronto' : `OFFLINE / PORTA OCUPADA (${process.env.NEXT_PUBLIC_ODM_API_URL || 'http://localhost:3001'})`}</p>
           </div>
         </Card>
       </div>

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function EditarProjetoPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = createClient();
   const router = useRouter();
 
   const [id, setId] = useState("");

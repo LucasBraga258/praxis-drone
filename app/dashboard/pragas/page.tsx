@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function PragasPage() {
+  const supabase = await createClient();
 
   const { data: pragas } =
     await supabase

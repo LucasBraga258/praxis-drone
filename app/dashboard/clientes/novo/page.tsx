@@ -2,16 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "../../../../lib/supabase/client";
+import { toast } from "sonner";
 
 export default function NovoClientePage() {
   const router = useRouter();
+  const supabase = createClient();
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [salvando, setSalvando] = useState(false);
 
   async function salvarCliente() {
+    if (!nome.trim() || !email.trim()) {
+      toast.error("Preencha todos os campos obrigatórios.");
+      return;
+    }
+
     setSalvando(true);
 
     const { error } = await supabase
@@ -24,12 +31,12 @@ export default function NovoClientePage() {
       ]);
 
     if (error) {
-      alert("Erro ao salvar cliente");
-      console.error(error);
+      toast.error(`Erro ao salvar cliente: ${error.message}`);
       setSalvando(false);
       return;
     }
 
+    toast.success("Cliente cadastrado com sucesso!");
     router.push("/dashboard/clientes");
     router.refresh();
   }
