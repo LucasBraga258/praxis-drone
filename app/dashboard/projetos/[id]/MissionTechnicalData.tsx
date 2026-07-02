@@ -15,6 +15,7 @@ interface MissionTechnicalDataProps {
   alturaVoo: number | null;
   sobreposicaoFrontal: number | null;
   sobreposicaoLateral: number | null;
+  fonteCaptura?: string | null;
 }
 
 function Campo({
@@ -51,36 +52,39 @@ export default function MissionTechnicalData({
   alturaVoo,
   sobreposicaoFrontal,
   sobreposicaoLateral,
+  fonteCaptura,
 }: MissionTechnicalDataProps) {
   return (
     <Card>
       <h2 className="text-xl font-bold text-white mb-6">Dados Técnicos</h2>
 
       <div className="space-y-6">
-        {/* Dados de Voo */}
-        <div>
-          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
-            Parâmetros de Voo
-          </h3>
+        {/* Dados de Voo (Ocultar se Satélite) */}
+        {fonteCaptura !== "Satelite" && (
+          <div>
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+              Parâmetros de Voo
+            </h3>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            <Campo label="Piloto" valor={piloto} />
-            <Campo label="Drone" valor={drone} />
-            <Campo label="Câmera" valor={camera} />
-            <Campo
-              label="Altura de Voo"
-              valor={alturaVoo ? `${alturaVoo} m` : null}
-            />
-            <Campo
-              label="Sobrep. Frontal"
-              valor={sobreposicaoFrontal ? `${sobreposicaoFrontal}%` : null}
-            />
-            <Campo
-              label="Sobrep. Lateral"
-              valor={sobreposicaoLateral ? `${sobreposicaoLateral}%` : null}
-            />
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <Campo label="Piloto" valor={piloto} />
+              <Campo label="Drone" valor={drone} />
+              <Campo label="Câmera" valor={camera} />
+              <Campo
+                label="Altura de Voo"
+                valor={alturaVoo ? `${alturaVoo} m` : null}
+              />
+              <Campo
+                label="Sobrep. Frontal"
+                valor={sobreposicaoFrontal ? `${sobreposicaoFrontal}%` : null}
+              />
+              <Campo
+                label="Sobrep. Lateral"
+                valor={sobreposicaoLateral ? `${sobreposicaoLateral}%` : null}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Dados Geográficos */}
         <div>

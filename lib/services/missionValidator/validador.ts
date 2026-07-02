@@ -121,12 +121,34 @@ function validarMetadados(
   resultado.altura = primeira.altura;
 
   // === GPS ===
+  let minLat = 90;
+  let maxLat = -90;
+  let minLon = 180;
+  let maxLon = -180;
+  const trajeto: number[][] = [];
+
   const fotosComGPS = fotos.filter(
-    (f) => f.latitude != null && f.longitude != null
+    (f) => {
+      if (f.latitude != null && f.longitude != null) {
+        if (f.latitude < minLat) minLat = f.latitude;
+        if (f.latitude > maxLat) maxLat = f.latitude;
+        if (f.longitude < minLon) minLon = f.longitude;
+        if (f.longitude > maxLon) maxLon = f.longitude;
+        trajeto.push([f.latitude, f.longitude]);
+        return true;
+      }
+      return false;
+    }
   ).length;
 
   resultado.fotosComGPS = fotosComGPS;
   resultado.fotosSemGPS = fotos.length - fotosComGPS;
+
+  if (fotosComGPS > 0) {
+    resultado.bbox = [minLon, minLat, maxLon, maxLat];
+    const step = Math.max(1, Math.floor(trajeto.length / 50));
+    resultado.trajeto = trajeto.filter((_, i) => i % step === 0);
+  }
 
   if (resultado.fotosSemGPS > 0) {
     resultado.avisos.push(

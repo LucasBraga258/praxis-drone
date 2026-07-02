@@ -212,6 +212,53 @@ export async function GET() {
       }
     }
 
+    // GATILHOS INTELIGENTES (Satélite + Pluviometria)
+    const { data: talhoes } = await supabase.from("talhoes").select("id, nome, fazenda_id");
+    const trintaDiasAtras = new Date();
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+
+    for (const t of talhoes || []) {
+      // Pega o último satélite
+      const { data: ultimoSatelite } = await supabase
+        .from("projetos")
+        .select("*")
+        .eq("talhao_id", t.id)
+        .eq("fonte_captura", "Satelite")
+        .order("data_voo", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (ultimoSatelite && ultimoSatelite.baixo_vigor > 15) {
+        // Verifica as chuvas dos últimos 15 dias
+        const quinzeDiasAtras = new Date();
+        quinzeDiasAtras.setDate(quinzeDiasAtras.getDate() - 15);
+        
+        const { data: chuvas } = await supabase
+          .from("dados_iot")
+          .select("valor")
+          .eq("talhao_id", t.id)
+          .gte("data_leitura", quinzeDiasAtras.toISOString());
+
+        const totalChuva = (chuvas || []).reduce((acc, curr) => acc + Number(curr.valor), 0);
+
+        if (totalChuva < 20) {
+          // Criar alerta
+          await supabase
+            .from("notificacoes")
+            .upsert({
+              chave: `smart_trigger_${t.id}_${hoje.toISOString().split("T")[0]}`,
+              fazenda_id: t.fazenda_id,
+              titulo: "🚨 Gatilho Inteligente: Risco de Estresse",
+              descricao: `Talhão ${t.nome} apresenta queda de vigor (Satélite) e baixa precipitação (${totalChuva}mm em 15 dias). RECOMENDADO: Voo de Drone para investigação focal.`,
+              tipo: "critico",
+            });
+          
+          // MOCK DE EMAIL/PUSH NOTIFICATION (Pre-requisito para o App Android/iOS)
+          console.log(`[PUSH/EMAIL ENVIADO] Para administrador: Talhão ${t.nome} precisa de voo de drone! Vigor baixo e apenas ${totalChuva}mm de chuva.`);
+        }
+      }
+    }
+
     return NextResponse.json({
       sucesso: true,
     });

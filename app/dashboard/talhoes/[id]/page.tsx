@@ -2,6 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import Card from "@/app/components/ui/Card";
 import TalhaoMapClient from "./TalhaoMapClient";
+import RainInputButton from "./RainInputButton";
+import IASummaryCard from "./IASummaryCard";
+import SplitMapClient from "./SplitMapClient";
+import TimelineFeed from "./TimelineFeed";
+import SyncSatelliteButton from "./SyncSatelliteButton";
 
 export default async function TalhaoPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
@@ -23,13 +28,75 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
 
   const { data: missoes } = await supabase
     .from("projetos")
-    .select("id, codigo, status, data_voo, area_mapeada, alto_vigor, medio_vigor, baixo_vigor, fonte_captura, ortomosaico_img_url, ndvi_img_url, latitude, longitude")
+    .select("id, codigo, status, data_voo, area_mapeada, alto_vigor, medio_vigor, baixo_vigor, fonte_captura, ortomosaico_img_url, ndvi_img_url, vari_img_url, falsa_cor_img_url, dsm_img_url, dtm_img_url, latitude, longitude")
     .eq("talhao_id", id)
     .order("data_voo", { ascending: false });
 
   const numMissoes = missoes?.length || 0;
   const nomeFazenda = (talhao as any).fazendas?.nome || "Fazenda Desconhecida";
   const fazendaId = (talhao as any).fazendas?.id ?? talhao.fazenda_id;
+
+  const { data: intervencoes } = await supabase
+    .from("intervencoes")
+    .select("*")
+    .eq("talhao_id", id)
+    .order("data_realizacao", { ascending: false });
+
+  const { data: pragas } = await supabase
+    .from("pragas")
+    .select("*")
+    .eq("fazenda_id", fazendaId)
+    .order("created_at", { ascending: false }); // fallback se der erro será apenas ignorar o data nulo
+
+  const { data: chuvas } = await supabase
+    .from("dados_iot")
+    .select("*")
+    .eq("talhao_id", id)
+    .eq("tipo_sensor", "PLUVIOMETRO_MANUAL")
+    .order("data_leitura", { ascending: false });
+
+  // ── Montando a Linha do Tempo ─────────────────────────────
+  const eventosTimeline = [
+    ...(missoes || []).map((m) => ({
+      id: `m-${m.id}`,
+      tipo: "monitoramento" as const,
+      data: m.data_voo,
+      titulo: m.fonte_captura === "Satelite" ? "🛰️ Passagem Satélite" : "🚁 Voo de Drone",
+      subtitulo: m.codigo,
+      href: `/dashboard/projetos/${m.id}`,
+      destaque: m.alto_vigor != null ? `Vigor: Alto (${m.alto_vigor}%) | Baixo (${m.baixo_vigor}%)` : undefined,
+      cor: m.fonte_captura === "Satelite" ? "#3b82f6" : "#8b5cf6",
+      icone: m.fonte_captura === "Satelite" ? "🛰️" : "🚁"
+    })),
+    ...(intervencoes || []).map((i) => ({
+      id: `i-${i.id}`,
+      tipo: "intervencao" as const,
+      data: i.data_realizacao || i.created_at?.split("T")[0] || "",
+      titulo: i.tipo || "Intervenção",
+      subtitulo: i.status,
+      href: `/dashboard/intervencoes/${i.id}`,
+      cor: "#10b981",
+      icone: "🧪"
+    })),
+    ...(pragas || []).map((p) => ({
+      id: `p-${p.id}`,
+      tipo: "praga" as const,
+      data: p.created_at?.split("T")[0] || "",
+      titulo: p.nome || "Praga/Doença",
+      subtitulo: p.gravidade ? `Gravidade: ${p.gravidade}` : undefined,
+      cor: "#f59e0b",
+      icone: "🐛"
+    })),
+    ...(chuvas || []).map((c) => ({
+      id: `c-${c.id}`,
+      tipo: "clima" as const,
+      data: c.data_leitura?.split("T")[0] || "",
+      titulo: "Chuva Registrada",
+      subtitulo: `${c.valor} ${c.unidade}`,
+      cor: "#0ea5e9",
+      icone: "🌧️"
+    }))
+  ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
   // Monitoramentos para o mapa do talhão
   const monitoramentosMapa = (missoes || [])
@@ -41,6 +108,10 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
       status: m.status,
       ortomosaicoImgUrl: m.ortomosaico_img_url,
       ndviImgUrl: m.ndvi_img_url,
+      variImgUrl: m.vari_img_url,
+      falsaCorImgUrl: m.falsa_cor_img_url,
+      dsmImgUrl: m.dsm_img_url,
+      dtmImgUrl: m.dtm_img_url,
       lat: m.latitude,
       lng: m.longitude,
     }));
@@ -88,8 +159,8 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
               {talhao.safra && (
                 <span>Safra: <strong style={{ color: "var(--text-primary)" }}>{talhao.safra}</strong></span>
               )}
-              {talhao.area && (
-                <span>Área: <strong style={{ color: "#4ade80" }}>{talhao.area} ha</strong></span>
+              {talhao.area_hectares && (
+                <span>Área: <strong style={{ color: "#4ade80" }}>{talhao.area_hectares} ha</strong></span>
               )}
             </div>
           </div>
@@ -110,6 +181,8 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
             >
               🚁 Novo Monitoramento
             </Link>
+            <SyncSatelliteButton talhaoId={Number(id)} />
+            <RainInputButton talhaoId={Number(id)} />
             <Link
               href={`/dashboard/fazendas/${fazendaId}`}
               style={{
@@ -124,6 +197,7 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
             >
               ← Fazenda
             </Link>
+            <Link href={`/dashboard/talhoes/${talhao.id}/editar`} style={{ padding: "8px 16px", background: "var(--bg-surface)", border: "1px solid var(--bg-border)", color: "var(--text-primary)", borderRadius: "var(--radius-md)", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>✏️ Editar</Link>
             <Link
               href={`/dashboard/talhoes/${talhao.id}/excluir`}
               style={{
@@ -145,7 +219,7 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
         {/* ── STATS ─────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
           {[
-            { label: "Área Útil", value: `${talhao.area || 0} ha`, icon: "📐", cor: "#4ade80" },
+            { label: "Área Útil", value: `${talhao.area_hectares || talhao.area || 0} ha`, icon: "📐", cor: "#4ade80" },
             { label: "Cultura", value: talhao.cultura || "—", icon: "🌱", cor: "#86efac" },
             { label: "Safra", value: talhao.safra || "—", icon: "📅", cor: "#60a5fa" },
             { label: "Monitoramentos", value: String(numMissoes), icon: "🚁", cor: "#a78bfa" },
@@ -166,14 +240,43 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
           ))}
         </div>
 
-        {/* ── MAPA DO TALHÃO ───────────────────────────── */}
-        <div style={{ marginBottom: 24 }}>
-          <TalhaoMapClient
-            talhaoId={Number(id)}
-            talhaoNome={talhao.nome}
-            monitoramentos={monitoramentosMapa}
-            altura="380px"
-          />
+        {/* ── LAYOUT HÍBRIDO (Mapa + Timeline) ───────────────────────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 20, marginBottom: 24, alignItems: "start" }}>
+          
+          {/* Esquerda: IA e Mapa */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <IASummaryCard talhaoId={Number(id)} />
+            
+            <div>
+              {monitoramentosMapa.length >= 2 ? (
+                <SplitMapClient
+                  bbox={talhao.bbox_geojson ? {
+                    lat_centro: talhao.latitude || 0,
+                    lng_centro: talhao.longitude || 0,
+                    coordinates: talhao.bbox_geojson.coordinates
+                  } : null}
+                  esquerda={monitoramentosMapa[1]}
+                  direita={monitoramentosMapa[0]}
+                />
+              ) : (
+                <TalhaoMapClient
+                  talhaoId={Number(id)}
+                  talhaoNome={talhao.nome}
+                  monitoramentos={monitoramentosMapa}
+                  altura="450px"
+                  talhaoGeojson={talhao.bbox_geojson || talhao.limites_geojson}
+                  talhaoLat={talhao.latitude}
+                  talhaoLng={talhao.longitude}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Direita: Timeline */}
+          <div>
+            <TimelineFeed eventos={eventosTimeline} talhaoId={Number(id)} />
+          </div>
+
         </div>
 
         {/* ── OBSERVAÇÕES ───────────────────────────────── */}
@@ -184,115 +287,7 @@ export default async function TalhaoPage({ params }: { params: Promise<{ id: str
           </Card>
         )}
 
-        {/* ── HISTÓRICO DE MONITORAMENTOS ────────────────── */}
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
-              🚁 Histórico de Monitoramentos
-            </h2>
-            {numMissoes > 0 && (
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                {numMissoes} monitoramento{numMissoes !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-
-          {numMissoes > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {missoes?.map((missao) => (
-                <div
-                  key={missao.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    gap: 12,
-                    padding: "14px 16px",
-                    background: "var(--bg-surface)",
-                    border: "1px solid var(--bg-border)",
-                    borderRadius: 12,
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <Link
-                        href={`/dashboard/projetos/${missao.id}`}
-                        style={{ fontSize: 14, fontWeight: 700, color: "#a78bfa", textDecoration: "none" }}
-                      >
-                        {missao.codigo || `Monitoramento #${missao.id}`}
-                      </Link>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          padding: "2px 7px",
-                          borderRadius: 999,
-                          fontWeight: 600,
-                          background:
-                            missao.status === "Concluído" ? "rgba(34,197,94,0.1)" :
-                            missao.status === "Erro" ? "rgba(239,68,68,0.1)" :
-                            "rgba(71,85,105,0.15)",
-                          color:
-                            missao.status === "Concluído" ? "#4ade80" :
-                            missao.status === "Erro" ? "#f87171" :
-                            "#94a3b8",
-                        }}
-                      >
-                        {missao.status}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--text-muted)" }}>
-                      <span>📅 {missao.data_voo}</span>
-                      {missao.area_mapeada > 0 && <span>📐 {missao.area_mapeada} ha</span>}
-                      {missao.alto_vigor != null && (
-                        <span>🟢 {missao.alto_vigor}% vigor</span>
-                      )}
-                      <span>{missao.fonte_captura === "Satelite" ? "🛰️" : "🚁"} {missao.fonte_captura || "Drone"}</span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <Link
-                      href={`/dashboard/projetos/${missao.id}/mapa`}
-                      style={{ padding: "6px 12px", background: "rgba(79,70,229,0.15)", color: "#818cf8", borderRadius: 8, textDecoration: "none", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}
-                    >
-                      🗺️ Mapa
-                    </Link>
-                    <Link
-                      href={`/dashboard/projetos/${missao.id}`}
-                      style={{ padding: "6px 12px", background: "rgba(34,197,94,0.1)", color: "#4ade80", borderRadius: 8, textDecoration: "none", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}
-                    >
-                      Ver →
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ textAlign: "center", padding: "32px 0" }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>🌾</div>
-              <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
-                Nenhum monitoramento registrado neste talhão.
-              </p>
-              <Link
-                href={`/dashboard/projetos/novo?talhaoId=${talhao.id}&fazendaId=${talhao.fazenda_id}`}
-                style={{
-                  padding: "10px 20px",
-                  background: "rgba(34,197,94,0.1)",
-                  border: "1px solid rgba(34,197,94,0.2)",
-                  color: "#4ade80",
-                  borderRadius: "var(--radius-md)",
-                  textDecoration: "none",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  display: "inline-block",
-                }}
-              >
-                Iniciar Primeiro Monitoramento →
-              </Link>
-            </div>
-          )}
-        </Card>
-
+        {/* ── HISTÓRICO DE MONITORAMENTOS (Substituído pela Timeline) ────────────────── */}
       </div>
     </main>
   );

@@ -29,7 +29,7 @@ interface Missao {
   ortomosaico_url: string;
   ndvi_img_url: string;
   ortomosaico_img_url: string;
-  fazendas: { nome: string; municipio: string; uf: string; cultura: string } | null;
+  fazendas: { nome: string; cidade: string; estado: string; cultura: string } | null;
 }
 
 function LockIcon() {
@@ -135,7 +135,7 @@ export default function CompartilharPage() {
       // Buscar dados da missão
       const { data: proj } = await supabase
         .from("projetos")
-        .select("*, fazendas(nome, municipio, uf, cultura)")
+        .select("*, fazendas(nome, cidade, estado, cultura)")
         .eq("id", data.projeto_id)
         .single();
 
@@ -311,7 +311,7 @@ export default function CompartilharPage() {
           </h1>
           {fazenda && (
             <p style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {fazenda.nome} {fazenda.municipio ? `· ${fazenda.municipio}/${fazenda.uf}` : ""} {fazenda.cultura ? `· ${fazenda.cultura}` : ""}
+              {fazenda.nome} {fazenda.cidade ? `📍 ${fazenda.cidade}/${fazenda.estado}` : ""} {fazenda.cultura ? `🌱 ${fazenda.cultura}` : ""}
             </p>
           )}
           <div style={{ display: "flex", gap: 20, marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--bg-border)", flexWrap: "wrap" }}>

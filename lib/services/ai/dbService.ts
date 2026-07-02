@@ -5,6 +5,7 @@ export interface ContextoGeral {
   totalMissoes: number;
   clientes: any[];
   fazendas: any[];
+  areaTotal: number;
 }
 
 export interface ContextoFazenda {
@@ -31,19 +32,22 @@ export const DashboardDBService = {
         { data: clientes },
         { count: totalMissoes },
       ] = await Promise.all([
-        supabase.from("fazendas").select("id, nome, area_ha, cultura, status_saude, municipio, uf, proximo_voo").limit(20),
+        supabase.from("fazendas").select("id, nome, area_ha, cultura, status_saude, cidade, estado, proximo_voo").limit(20),
         supabase.from("clientes").select("id, nome").limit(20),
         supabase.from("projetos").select("*", { count: "exact", head: true }),
       ]);
 
+      const areaTotal = (fazendas || []).reduce((acc, f) => acc + (Number(f.area_ha) || 0), 0);
+
       return {
         totalMissoes: totalMissoes || 0,
         clientes: clientes || [],
-        fazendas: fazendas || []
+        fazendas: fazendas || [],
+        areaTotal
       };
     } catch (error) {
       Logger.error("Erro ao buscar Contexto Geral", error);
-      return { totalMissoes: 0, clientes: [], fazendas: [] };
+      return { totalMissoes: 0, clientes: [], fazendas: [], areaTotal: 0 };
     }
   },
 

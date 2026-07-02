@@ -6,7 +6,7 @@ import { Logger } from "../../utils/logger";
 import fs from "fs";
 import path from "path";
 
-const TIMEOUT_MS = 20000; // 20 segundos
+const TIMEOUT_MS = 60000; // 60 segundos
 
 export class AIProviderFactory {
   private static instance: AIProviderFactory;
@@ -100,7 +100,7 @@ export class AIProviderFactory {
       Logger.error(`Falha no provedor ${activeProvider.name}. Acionando Fallback.`, error);
       
       const motivo = error.message === "Timeout_Atingido" 
-        ? "o provedor demorou mais de 20 segundos para responder"
+        ? "o provedor demorou mais de 60 segundos para responder"
         : "ocorreu um erro técnico na comunicação da rede/chave";
 
       // Fallback Inteligente (sempre cai no Mock, que explica amigavelmente)

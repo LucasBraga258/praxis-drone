@@ -49,6 +49,8 @@ interface MissionFlightMapProps {
   projetoId: number;
   ortomosaicoUrl?: string | null;
   ndviUrl?: string | null;
+  variUrl?: string | null;
+  falsaCorUrl?: string | null;
   bbox?: BboxVoo | null;
   area_ha?: number;
 }
@@ -57,6 +59,8 @@ export default function MissionFlightMap({
   projetoId,
   ortomosaicoUrl: ortomosaicoUrlProp,
   ndviUrl: ndviUrlProp,
+  variUrl: variUrlProp,
+  falsaCorUrl: falsaCorUrlProp,
   bbox: bboxProp,
   area_ha: area_haProp = 0,
 }: MissionFlightMapProps) {
@@ -67,6 +71,8 @@ export default function MissionFlightMap({
   const [distancia_km, setDistanciaKm] = useState(0);
   const [ortomosaicoUrl, setOrtomosaicoUrl] = useState(ortomosaicoUrlProp ?? null);
   const [ndviUrl, setNdviUrl] = useState(ndviUrlProp ?? null);
+  const [variUrl, setVariUrl] = useState(variUrlProp ?? null);
+  const [falsaCorUrl, setFalsaCorUrl] = useState(falsaCorUrlProp ?? null);
   const [carregando, setCarregando] = useState(true);
 
   const carregarDados = useCallback(async () => {
@@ -120,7 +126,7 @@ export default function MissionFlightMap({
     // Dados do projeto (bbox e urls)
     const { data: projeto } = await supabase
       .from("projetos")
-      .select("latitude, longitude, area_mapeada, ortomosaico_img_url, ndvi_img_url")
+      .select("latitude, longitude, area_mapeada, ortomosaico_img_url, ndvi_img_url, vari_img_url, falsa_cor_img_url, talhoes(bbox_geojson)")
       .eq("id", projetoId)
       .single();
 
@@ -128,6 +134,66 @@ export default function MissionFlightMap({
       if (projeto.area_mapeada) setAreaHa(projeto.area_mapeada);
       if (projeto.ortomosaico_img_url) setOrtomosaicoUrl(projeto.ortomosaico_img_url);
       if (projeto.ndvi_img_url) setNdviUrl(projeto.ndvi_img_url);
+      if (projeto.vari_img_url) setVariUrl(projeto.vari_img_url);
+      if (projeto.falsa_cor_img_url) setFalsaCorUrl(projeto.falsa_cor_img_url);
+
+      const talhaoRaw = projeto.talhoes;
+      const talhao = Array.isArray(talhaoRaw) ? talhaoRaw[0] : talhaoRaw;
+      if (talhao && talhao.bbox_geojson && (!arquivos || arquivos.length === 0)) {
+        try {
+          const bboxObj = typeof talhao.bbox_geojson === 'string' ? JSON.parse(talhao.bbox_geojson) : talhao.bbox_geojson;
+          let coords;
+          if (bboxObj.type === 'Feature') {
+            coords = bboxObj.geometry.coordinates[0];
+          } else if (bboxObj.geometry) {
+             coords = bboxObj.geometry.coordinates[0];
+          } else {
+            coords = bboxObj.coordinates ? bboxObj.coordinates[0] : undefined;
+          }
+          if (coords && coords.length > 0) {
+            const lngs = coords.map((c: any) => c[0]);
+            const lats = coords.map((c: any) => c[1]);
+            const norte = Math.max(...lats);
+            const sul = Math.min(...lats);
+            const leste = Math.max(...lngs);
+            const oeste = Math.min(...lngs);
+            setBbox({
+              norte,
+              sul,
+              leste,
+              oeste,
+              lat_centro: (norte + sul) / 2,
+              lng_centro: (leste + oeste) / 2,
+            });
+          } else if ((talhao as any).latitude && (talhao as any).longitude) {
+            // Fallback to center coordinates if polygon is empty
+            const lat = Number((talhao as any).latitude);
+            const lng = Number((talhao as any).longitude);
+            setBbox({
+              norte: lat + 0.001,
+              sul: lat - 0.001,
+              leste: lng + 0.001,
+              oeste: lng - 0.001,
+              lat_centro: lat,
+              lng_centro: lng,
+            });
+          }
+        } catch (e) {
+          console.error("Erro parsing bbox_geojson", e);
+        }
+      } else if (projeto.latitude && projeto.longitude && (!arquivos || arquivos.length === 0)) {
+         // Se não tem talhao mas tem projeto lat/lng
+         const lat = Number(projeto.latitude);
+         const lng = Number(projeto.longitude);
+         setBbox({
+            norte: lat + 0.001,
+            sul: lat - 0.001,
+            leste: lng + 0.001,
+            oeste: lng - 0.001,
+            lat_centro: lat,
+            lng_centro: lng,
+         });
+      }
     }
 
     setCarregando(false);
@@ -163,6 +229,8 @@ export default function MissionFlightMap({
           const proj = payload.new as any;
           if (proj.ortomosaico_img_url) setOrtomosaicoUrl(proj.ortomosaico_img_url);
           if (proj.ndvi_img_url) setNdviUrl(proj.ndvi_img_url);
+          if (proj.vari_img_url) setVariUrl(proj.vari_img_url);
+          if (proj.falsa_cor_img_url) setFalsaCorUrl(proj.falsa_cor_img_url);
           if (proj.area_mapeada) setAreaHa(proj.area_mapeada);
         }
       )
@@ -212,6 +280,8 @@ export default function MissionFlightMap({
       distancia_km={distancia_km}
       ortomosaicoUrl={ortomosaicoUrl}
       ndviUrl={ndviUrl}
+      variUrl={variUrl}
+      falsaCorUrl={falsaCorUrl}
       altura="520px"
     />
   );

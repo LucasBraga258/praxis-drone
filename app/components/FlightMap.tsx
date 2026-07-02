@@ -67,6 +67,8 @@ interface FlightMapProps {
   distancia_km?: number;
   ortomosaicoUrl?: string | null;
   ndviUrl?: string | null;
+  variUrl?: string | null;
+  falsaCorUrl?: string | null;
   altura?: string | number;
 }
 
@@ -141,6 +143,8 @@ export default function FlightMap({
   distancia_km = 0,
   ortomosaicoUrl,
   ndviUrl,
+  variUrl,
+  falsaCorUrl,
   altura = "500px",
 }: FlightMapProps) {
   const fotosComGPS = useMemo(
@@ -179,6 +183,12 @@ export default function FlightMap({
 
   const temDados = fotosComGPS.length > 0;
   const temOrtomosaico = !!ortomosaicoUrl;
+  const isSatellite = !temOrtomosaico && !temDados && (!!ndviUrl || !!variUrl || !!falsaCorUrl);
+
+  const fixTiTiler = (url: string | null | undefined) => {
+    if (!url) return "";
+    return url.replace("stac.cogeo.org", "titiler.xyz/stac");
+  };
 
   return (
     <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
@@ -230,15 +240,17 @@ export default function FlightMap({
                   flexShrink: 0,
                 }}
               />
-              {temOrtomosaico ? "Ortomosaico Disponível" : "Mapa de Satélite"}
+              {temOrtomosaico ? "Produto Disponível" : (isSatellite ? "Satélite Disponível" : "Mapa de Satélite")}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                <span>📷 Fotos com GPS</span>
-                <span style={{ color: "#f1f5f9", fontWeight: 600 }}>
-                  {fotosComGPS.length}
-                </span>
-              </div>
+              {!isSatellite && (
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                  <span>📷 Fotos com GPS</span>
+                  <span style={{ color: "#f1f5f9", fontWeight: 600 }}>
+                    {fotosComGPS.length}
+                  </span>
+                </div>
+              )}
               {area_ha > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
                   <span>📐 Área estimada</span>
@@ -263,16 +275,16 @@ export default function FlightMap({
       {/* ── Mapa ── */}
       <MapContainer
         center={centroInicial}
-        zoom={temDados ? 16 : 4}
+        zoom={temDados || isSatellite ? 15 : 4}
         style={{ height: altura, width: "100%" }}
         zoomControl={false}
       >
         <ZoomControl position="bottomright" />
         <ScaleControl position="bottomleft" imperial={false} />
 
-        {temDados && <AutoFitBounds bbox={bbox} fotos={fotosComGPS} />}
+        {(temDados || bboxBounds) && <AutoFitBounds bbox={bbox} fotos={fotosComGPS} />}
 
-        <LayersControl position="topright">
+        <LayersControl position="topright" collapsed={false}>
           {/* Camada base: Satélite */}
           <LayersControl.BaseLayer
             checked={!temOrtomosaico}
@@ -285,30 +297,52 @@ export default function FlightMap({
             />
           </LayersControl.BaseLayer>
 
-          {/* Ortomosaico — só quando disponível */}
-          {temOrtomosaico && ortoBounds && (
+          {/* Ortomosaico BaseLayer (se Tile) */}
+          {temOrtomosaico && ortomosaicoUrl!.includes("{z}") && (
             <LayersControl.BaseLayer checked name="🗺️ Ortomosaico">
               <TileLayer
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                attribution="© Esri"
+                url={fixTiTiler(ortomosaicoUrl)}
                 maxZoom={20}
+                maxNativeZoom={16}
               />
             </LayersControl.BaseLayer>
           )}
 
           {/* Overlay: NDVI */}
-          {ndviUrl && ortoBounds && (
-            <LayersControl.Overlay name="🟢 NDVI">
-              <ImageOverlay
-                url={ndviUrl}
-                bounds={ortoBounds}
-                opacity={0.85}
-              />
+          {ndviUrl && (
+            <LayersControl.Overlay name="🟢 NDVI" checked={!temOrtomosaico}>
+              {ndviUrl.includes("{z}") ? (
+                <TileLayer url={fixTiTiler(ndviUrl)} maxZoom={20} opacity={0.85} maxNativeZoom={16} />
+              ) : (
+                ortoBounds ? <ImageOverlay url={ndviUrl} bounds={ortoBounds} opacity={0.85} /> : null
+              )}
+            </LayersControl.Overlay>
+          )}
+
+          {/* Overlay: VARI */}
+          {variUrl && (
+            <LayersControl.Overlay name="🟡 VARI">
+              {variUrl.includes("{z}") ? (
+                <TileLayer url={fixTiTiler(variUrl)} maxZoom={20} opacity={0.85} maxNativeZoom={16} />
+              ) : (
+                ortoBounds ? <ImageOverlay url={variUrl} bounds={ortoBounds} opacity={0.85} /> : null
+              )}
+            </LayersControl.Overlay>
+          )}
+
+          {/* Overlay: Falsa Cor */}
+          {falsaCorUrl && (
+            <LayersControl.Overlay name="🔴 Falsa Cor (Satélite)" checked={isSatellite}>
+              {falsaCorUrl.includes("{z}") ? (
+                <TileLayer url={fixTiTiler(falsaCorUrl)} maxZoom={20} opacity={1} maxNativeZoom={16} />
+              ) : (
+                ortoBounds ? <ImageOverlay url={falsaCorUrl} bounds={ortoBounds} opacity={1} /> : null
+              )}
             </LayersControl.Overlay>
           )}
 
           {/* Overlay: Ortomosaico como camada */}
-          {temOrtomosaico && ortoBounds && (
+          {temOrtomosaico && ortoBounds && !ortomosaicoUrl!.includes("{z}") && (
             <LayersControl.Overlay checked name="🖼️ Ortomosaico (overlay)">
               <ImageOverlay
                 url={ortomosaicoUrl!}

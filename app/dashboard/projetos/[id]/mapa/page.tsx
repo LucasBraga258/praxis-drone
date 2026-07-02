@@ -3,19 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { MapContainer, TileLayer, Polygon, Popup, LayersControl, ImageOverlay } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import dynamic from "next/dynamic";
 
-// Fix for leaflet icons in Next.js
-import L from "leaflet";
-const iconRetinaUrl = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png";
-const iconUrl = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png";
-const shadowUrl = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png";
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl,
-  iconUrl,
-  shadowUrl,
+const WebGISMap = dynamic(() => import("./WebGISMap"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full flex items-center justify-center bg-[#0F1C30] text-emerald-500">Carregando mapa...</div>
 });
 
 export default function WebGISPage() {
@@ -28,10 +20,22 @@ export default function WebGISPage() {
   const [projeto, setProjeto] = useState<any>(null);
   const [carregando, setCarregando] = useState(true);
 
+  // Estados do Satélite
+  const [mapMode, setMapMode] = useState<"satellite" | "drone">("satellite");
+  const [layerType, setLayerType] = useState<"rgb" | "ndvi" | "vari" | "falsa_cor">("rgb");
+  const [satelliteScenes, setSatelliteScenes] = useState<any[]>([]);
+  const [selectedScene, setSelectedScene] = useState<any>(null);
+  const [loadingSatellite, setLoadingSatellite] = useState(false);
+
   useEffect(() => {
     async function carregar() {
-      const { data } = await supabase.from("projetos").select("*").eq("id", projetoId).single();
+      const { data } = await supabase.from("projetos").select("*, fazendas (id, nome, cidade, estado), talhoes (id, latitude, longitude, area_hectares, bbox_geojson)").eq("id", projetoId).single();
       setProjeto(data);
+      
+      if (data?.fonte_captura === "Satelite") {
+        setMapMode("satellite");
+      }
+      
       setCarregando(false);
       setMounted(true);
     }
@@ -47,33 +51,41 @@ export default function WebGISPage() {
     );
   }
 
-  if (!projeto?.ortomosaico_img_url) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#07111F] text-white p-8">
-        <div className="max-w-md text-center bg-[#0F1C30] p-8 rounded-2xl border border-slate-700">
-          <div className="text-4xl mb-4">⚙️</div>
-          <h2 className="text-2xl font-bold mb-2">Processamento em Andamento</h2>
-          <p className="text-slate-400 mb-6">As imagens deste projeto ainda estão sendo processadas pela fotogrametria. O WebGIS será liberado assim que o Ortomosaico for gerado.</p>
-          <button onClick={() => router.back()} className="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded-xl font-medium transition">
-            Voltar para Missão
-          </button>
-        </div>
-      </div>
-    );
+  const talhaoRaw = projeto?.talhoes;
+  const talhao = Array.isArray(talhaoRaw) ? talhaoRaw[0] : talhaoRaw;
+  const initialCenter = talhao?.latitude && talhao?.longitude 
+    ? [talhao.latitude, talhao.longitude] 
+    : [-14.235, -51.925]; // Centro do Brasil padrão
+
+  const mapZoom = talhao?.latitude ? 16 : 5;
+
+  let bounds: any = [];
+  let polygon: any = [];
+  
+  if (talhao?.bbox_geojson) {
+    try {
+      const bboxObj = typeof talhao.bbox_geojson === 'string' ? JSON.parse(talhao.bbox_geojson) : talhao.bbox_geojson;
+      let coords;
+      if (bboxObj.type === 'Feature') coords = bboxObj.geometry.coordinates[0];
+      else if (bboxObj.geometry) coords = bboxObj.geometry.coordinates[0];
+      else coords = bboxObj.coordinates ? bboxObj.coordinates[0] : undefined;
+      
+      if (coords && coords.length > 0) {
+        bounds = [
+          [coords[0][1], coords[0][0]],
+          [coords[2][1], coords[2][0]]
+        ];
+        
+        // Populate polygon from bbox_geojson since it contains the actual shape
+        polygon = coords.map((c: any) => [c[1], c[0]]);
+      }
+    } catch (e) {
+      console.error("Erro ao fazer parse do bbox_geojson no webgis", e);
+    }
   }
 
-  // Coordenadas simuladas do talhão (Futuramente extraídas do GeoJSON)
-  const bounds: L.LatLngBoundsExpression = [
-    [-23.5505, -46.6333],
-    [-23.5515, -46.6343]
-  ];
-  
-  const polygon: L.LatLngExpression[] = [
-    [-23.5505, -46.6333],
-    [-23.5505, -46.6343],
-    [-23.5515, -46.6343],
-    [-23.5515, -46.6333],
-  ];
+  const hasDroneData = !!projeto?.ortomosaico_img_url && projeto?.fonte_captura !== "Satelite";
+  const hasSatelliteData = projeto?.fonte_captura === "Satelite" || !!projeto?.ndvi_img_url;
 
   return (
     <div className="h-screen w-full relative flex flex-col bg-[#07111F]">
@@ -86,7 +98,25 @@ export default function WebGISPage() {
               Missão {projetoId}
             </span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">Visualize e interaja com os mapas gerados ({projeto.fonte_captura || "Drone"})</p>
+          <p className="text-sm text-slate-400 mt-1">Monitoramento por Satélite e Drone</p>
+        </div>
+
+        <div className="flex bg-slate-800 rounded-lg p-1">
+          <button
+            onClick={() => setMapMode("satellite")}
+            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${mapMode === "satellite" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"}`}
+          >
+            🛰️ Satélite (Padrão)
+          </button>
+          <button
+            onClick={() => {
+              if (hasDroneData) setMapMode("drone");
+            }}
+            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${mapMode === "drone" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"} ${!hasDroneData ? "opacity-50 cursor-not-allowed" : ""}`}
+            title={!hasDroneData ? "Imagens de drone ainda não processadas" : ""}
+          >
+            🚁 Drone (Alta Precisão)
+          </button>
         </div>
         
         <button 
@@ -97,48 +127,76 @@ export default function WebGISPage() {
         </button>
       </div>
 
+      {/* Satellite Timeline / Control Panel */}
+      {/* Satellite Controls */}
+      {mapMode === "satellite" && (
+        <div className="absolute top-24 right-6 z-[400] bg-[#0F1C30]/95 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-2xl flex flex-col gap-2 w-48">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Camadas de Satélite</h3>
+            <button 
+              onClick={() => setLayerType("rgb")}
+              className={`px-4 py-2 text-sm rounded-lg font-medium transition text-left ${layerType === "rgb" ? "bg-blue-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"}`}
+            >
+              🌍 Cor Real
+            </button>
+            {projeto?.ndvi_img_url && (
+              <button 
+                onClick={() => setLayerType("ndvi")}
+                className={`px-4 py-2 text-sm rounded-lg font-medium transition text-left ${layerType === "ndvi" ? "bg-emerald-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"}`}
+              >
+                🟢 NDVI (Saúde)
+              </button>
+            )}
+            {projeto?.vari_img_url && (
+              <button 
+                onClick={() => setLayerType("vari")}
+                className={`px-4 py-2 text-sm rounded-lg font-medium transition text-left ${layerType === "vari" ? "bg-amber-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"}`}
+              >
+                🟡 VARI (Vigor)
+              </button>
+            )}
+            {projeto?.falsa_cor_img_url && (
+              <button 
+                onClick={() => setLayerType("falsa_cor")}
+                className={`px-4 py-2 text-sm rounded-lg font-medium transition text-left ${layerType === "falsa_cor" ? "bg-rose-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"}`}
+              >
+                🔴 Falsa Cor
+              </button>
+            )}
+        </div>
+      )}
+
+      {/* Drone Controls */}
+      {mapMode === "drone" && (
+        <div className="absolute top-24 right-6 z-[400] bg-[#0F1C30]/95 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-2xl flex flex-col gap-2 w-48">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Camadas do Drone</h3>
+            <button 
+              onClick={() => setLayerType("rgb")}
+              className={`px-4 py-2 text-sm rounded-lg font-medium transition text-left ${layerType === "rgb" ? "bg-blue-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"}`}
+            >
+              🗺️ Ortomosaico
+            </button>
+            {projeto.ndvi_img_url && (
+              <button 
+                onClick={() => setLayerType("ndvi")}
+                className={`px-4 py-2 text-sm rounded-lg font-medium transition text-left ${layerType === "ndvi" ? "bg-emerald-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"}`}
+              >
+                🟢 NDVI (Alta Res.)
+              </button>
+            )}
+        </div>
+      )}
+
       {/* Mapa */}
       <div className="flex-1 w-full h-full z-0">
-        <MapContainer 
+        <WebGISMap 
           bounds={bounds}
-          zoom={17} 
-          scrollWheelZoom={true} 
-          style={{ height: "100%", width: "100%" }}
-          zoomControl={false}
-        >
-          <LayersControl position="bottomright">
-            <LayersControl.BaseLayer checked name="Satélite Base (Esri)">
-              <TileLayer
-                attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-            </LayersControl.BaseLayer>
-
-            <LayersControl.Overlay checked name="Contorno do Talhão">
-              <Polygon pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 0.1, weight: 3 }} positions={polygon}>
-                <Popup>Área Mapeada: {projeto.area_mapeada || 0} ha</Popup>
-              </Polygon>
-            </LayersControl.Overlay>
-
-            <LayersControl.Overlay checked name="Ortomosaico (RGB)">
-              <ImageOverlay
-                url={projeto.ortomosaico_img_url}
-                bounds={bounds}
-                opacity={0.9}
-              />
-            </LayersControl.Overlay>
-
-            {projeto.ndvi_img_url && (
-              <LayersControl.Overlay name="Índice Vegetativo (NDVI)">
-                <ImageOverlay
-                  url={projeto.ndvi_img_url}
-                  bounds={bounds}
-                  opacity={0.8}
-                />
-              </LayersControl.Overlay>
-            )}
-          </LayersControl>
-        </MapContainer>
+          polygon={polygon}
+          mapMode={mapMode}
+          layerType={layerType}
+          projeto={projeto}
+          initialCenter={initialCenter}
+          mapZoom={mapZoom}
+        />
       </div>
     </div>
   );

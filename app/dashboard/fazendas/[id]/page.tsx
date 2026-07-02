@@ -117,17 +117,21 @@ export default async function FazendaPage({ params }: { params: Promise<{ id: st
 
   // ── Talhões para o mapa ───────────────────────────────────
   const talhoesMapa = (fazenda.talhoes || []).map((t: any) => {
-    // Busca um projeto associado a este talhão que possua coordenadas
-    const proj = projetos?.find((p) => p.talhao_id === t.id && p.latitude && p.longitude);
+    // Tenta pegar o centroid pelo próprio talhão, se não existir busca no projeto (antigo fallback)
+    const lat = t.latitude || projetos?.find((p) => p.talhao_id === t.id)?.latitude || null;
+    const lng = t.longitude || projetos?.find((p) => p.talhao_id === t.id)?.longitude || null;
+
     return {
       id: t.id,
       nome: t.nome,
       cultura: t.cultura,
-      area: t.area,
-      lat: proj?.latitude || null,
-      lng: proj?.longitude || null,
+      area: t.area_hectares || t.area,
+      lat,
+      lng,
+      bbox_geojson: t.bbox_geojson || null,
     };
   });
+
 
   return (
     <main className="praxis-content" style={{ background: "var(--bg-base)", minHeight: "100vh" }}>
@@ -294,6 +298,7 @@ export default async function FazendaPage({ params }: { params: Promise<{ id: st
             <FarmMapClient
               fazendaId={fazenda.id}
               fazendaNome={fazenda.nome}
+              fazendaGeojson={fazenda.limites_geojson || fazenda.bbox_geojson || null}
               talhoes={talhoesMapa}
               altura="420px"
             />
@@ -349,7 +354,7 @@ export default async function FazendaPage({ params }: { params: Promise<{ id: st
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{talhao.nome}</h3>
                     <span style={{ fontSize: 11, color: "var(--text-muted)", background: "var(--bg-hover)", padding: "2px 6px", borderRadius: 4 }}>
-                      {talhao.area || 0} ha
+                      {talhao.area_hectares || talhao.area || 0} ha
                     </span>
                   </div>
                   <p style={{ fontSize: 12, color: "var(--text-muted)" }}>
@@ -368,42 +373,29 @@ export default async function FazendaPage({ params }: { params: Promise<{ id: st
           )}
         </Card>
 
-        {/* ── IA + COMPARAÇÃO ───────────────────────────── */}
-        {(situacao || comparacao) && (
-          <div style={{ display: "grid", gridTemplateColumns: situacao && comparacao ? "1fr 1fr" : "1fr", gap: 16, marginBottom: 24 }}>
-            {situacao && (
-              <Card>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 12 }}>🧠 Análise IA</h2>
-                <p style={{ fontSize: 14, fontWeight: 600, color: corSituacao }}>{situacao}</p>
-              </Card>
-            )}
-            {comparacao && (
-              <Card>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>📈 Comparação de Vigor</h2>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, textAlign: "center" }}>
-                  {[
-                    { label: "Alto", value: comparacao.alto, cor: comparacao.alto >= 0 ? "#4ade80" : "#f87171" },
-                    { label: "Médio", value: comparacao.medio, cor: comparacao.medio >= 0 ? "#4ade80" : "#f87171" },
-                    { label: "Baixo", value: comparacao.baixo, cor: comparacao.baixo <= 0 ? "#4ade80" : "#f87171" },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{item.label}</div>
-                      <div style={{ fontSize: 24, fontWeight: 800, color: item.cor }}>
-                        {item.value > 0 ? "+" : ""}{item.value}%
-                      </div>
-                    </div>
-                  ))}
+        {/* ── IA + COMPARAÇÃO ─────────── */}
+        {situacao && (
+          <Card className="mb-6">
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ fontSize: 32 }}>🤖</div>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
+                  Resumo Inteligente da Fazenda
+                </h3>
+                <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 12 }}>
+                  {situacao}
+                </p>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <Badge color={comparacao?.alto && comparacao.alto > 0 ? "green" : "red"}>
+                    {comparacao?.alto && comparacao.alto > 0 ? "↗" : "↘"} {Math.abs(comparacao?.alto || 0).toFixed(1)}% Vigor Alto
+                  </Badge>
+                  <Badge color={comparacao?.baixo && comparacao.baixo < 0 ? "green" : "red"}>
+                    {comparacao?.baixo && comparacao.baixo > 0 ? "↗" : "↘"} {Math.abs(comparacao?.baixo || 0).toFixed(1)}% Vigor Baixo
+                  </Badge>
                 </div>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* ── GRÁFICO HISTÓRICO ─────────────────────────── */}
-        {dadosGrafico.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <HistoricoChart data={dadosGrafico} />
-          </div>
+              </div>
+            </div>
+          </Card>
         )}
 
         {/* ── INTERVENÇÕES + PRAGAS ─────────────────────── */}
@@ -495,72 +487,7 @@ export default async function FazendaPage({ params }: { params: Promise<{ id: st
           </Card>
         </div>
 
-        {/* ── HISTÓRICO DE MONITORAMENTOS ────────────────── */}
-        <Card>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
-            🚁 Histórico de Monitoramentos
-          </h2>
-          {projetos?.length ? (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--bg-border)", color: "var(--text-muted)" }}>
-                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600 }}>Monitoramento</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600 }}>Data Voo</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#4ade80" }}>Alto Vigor</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#fbbf24" }}>Médio Vigor</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left", fontWeight: 600, color: "#f87171" }}>Baixo Vigor</th>
-                    <th style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projetos.map((projeto) => (
-                    <tr
-                      key={projeto.id}
-                      style={{ borderBottom: "1px solid var(--bg-surface)", transition: "background 0.15s" }}
-                    >
-                      <td style={{ padding: "10px 12px" }}>
-                        <Link
-                          href={`/dashboard/projetos/${projeto.id}`}
-                          style={{ color: "#a78bfa", textDecoration: "none", fontWeight: 600 }}
-                        >
-                          {projeto.codigo}
-                        </Link>
-                      </td>
-                      <td style={{ padding: "10px 12px", color: "var(--text-secondary)" }}>{projeto.data_voo}</td>
-                      <td style={{ padding: "10px 12px", color: "#4ade80", fontWeight: 600 }}>{projeto.alto_vigor || 0}%</td>
-                      <td style={{ padding: "10px 12px", color: "#fbbf24", fontWeight: 600 }}>{projeto.medio_vigor || 0}%</td>
-                      <td style={{ padding: "10px 12px", color: "#f87171", fontWeight: 600 }}>{projeto.baixo_vigor || 0}%</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right" }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <Link
-                            href={`/dashboard/projetos/${projeto.id}/mapa`}
-                            style={{ padding: "4px 10px", background: "rgba(79,70,229,0.15)", color: "#818cf8", borderRadius: 6, textDecoration: "none", fontSize: 11, fontWeight: 600 }}
-                          >
-                            🗺️ Mapa
-                          </Link>
-                          <Link
-                            href={`/dashboard/projetos/${projeto.id}`}
-                            style={{ padding: "4px 10px", background: "rgba(34,197,94,0.1)", color: "#4ade80", borderRadius: 6, textDecoration: "none", fontSize: 11, fontWeight: 600 }}
-                          >
-                            Ver →
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "24px 0", fontSize: 13 }}>
-              Nenhum monitoramento encontrado.{" "}
-              <Link href={`/dashboard/projetos/novo?fazenda_id=${fazenda.id}`} style={{ color: "#4ade80", textDecoration: "none" }}>
-                Criar o primeiro →
-              </Link>
-            </p>
-          )}
-        </Card>
+        {/* ── HISTÓRICO DE MONITORAMENTOS (REMOVIDO: Cada monitoramento pertence a um Talhão) ────────────────── */}
 
       </div>
     </main>

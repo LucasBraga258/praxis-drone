@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ReactMarkdown from "react-markdown";
 
 export default function RelatorioPage() {
   const supabase = createClient();
@@ -174,17 +175,15 @@ export default function RelatorioPage() {
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 print:border-none print:bg-white text-slate-800 leading-relaxed">
           {projeto.relatorio_html ? (
             <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: projeto.relatorio_html }} />
+          ) : projeto.relatorio_ia ? (
+            <div className="prose max-w-none">
+              <ReactMarkdown>{projeto.relatorio_ia}</ReactMarkdown>
+            </div>
           ) : (
             <div className="space-y-4">
               <p>A análise técnica preliminar indica que <strong>{projeto.alto_vigor || 0}%</strong> da área mapeada encontra-se com alto vigor vegetativo.</p>
               <p>As áreas de baixo vigor representam <strong>{projeto.baixo_vigor || 0}%</strong> da área e estão possivelmente sofrendo com estresse hídrico, deficiência nutricional ou ataque de pragas.</p>
               <p>Recomenda-se realizar monitoramento in-loco (Scouting) nas manchas vermelhas indicadas no mapa de Índice de Vegetação (NDVI) para determinar as causas da anomalia.</p>
-              <p className="mt-6"><strong>Recomendações da IA Praxis:</strong></p>
-              <ul className="list-disc pl-5">
-                <li>Agendar visita de campo nos talhões com menor índice.</li>
-                <li>Verificar registros pluviométricos dos últimos 15 dias.</li>
-                <li>Analisar perfil do solo nas áreas de compactação suspeita.</li>
-              </ul>
             </div>
           )}
         </div>

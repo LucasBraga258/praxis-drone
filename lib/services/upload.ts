@@ -186,6 +186,16 @@ export async function uploadFotosProjeto(
             area_mapeada: dadosVoo.area_ha,
             drone: dadosVoo.drone_modelo,
             camera: dadosVoo.camera_modelo,
+            bbox_geojson: {
+              type: "Polygon",
+              coordinates: [[
+                [dadosVoo.bbox.oeste, dadosVoo.bbox.norte],
+                [dadosVoo.bbox.leste, dadosVoo.bbox.norte],
+                [dadosVoo.bbox.leste, dadosVoo.bbox.sul],
+                [dadosVoo.bbox.oeste, dadosVoo.bbox.sul],
+                [dadosVoo.bbox.oeste, dadosVoo.bbox.norte]
+              ]]
+            },
             ...(municipio ? { municipio } : {}),
             ...(uf ? { uf } : {}),
           })

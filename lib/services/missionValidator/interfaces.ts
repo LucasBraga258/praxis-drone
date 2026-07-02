@@ -56,4 +56,8 @@ export interface ResultadoValidacao {
 
   avisos: string[];
 
+  bbox?: number[]; // [minLon, minLat, maxLon, maxLat]
+
+  trajeto?: number[][]; // [[lat, lon], ...]
+
 }

@@ -40,12 +40,14 @@ export interface TalhaoMarcador {
   area?: number | null;
   lat?: number | null;
   lng?: number | null;
+  bbox_geojson?: any | null;
 }
 
 interface FarmMapProps {
   fazendaNome: string;
   fazendaId: number;
   talhoes: TalhaoMarcador[];
+  fazendaGeojson?: any | null;
   latCenter?: number | null;
   lngCenter?: number | null;
   altura?: string;
@@ -72,18 +74,56 @@ function talhaoIcon(nome: string) {
   });
 }
 
+function CustomGeoJSONLayer({ data, color, weight, fillOpacity, onClick }: { data: any, color: string, weight: number, fillOpacity: number, onClick?: () => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!data) return;
+    try {
+      const geojsonObj = typeof data === "string" ? JSON.parse(data) : data;
+      const layer = L.geoJSON(geojsonObj, {
+        style: { color, weight, opacity: 0.8, fillOpacity, dashArray: onClick ? undefined : "4 4" }
+      }).addTo(map);
+
+      if (onClick) {
+        layer.on("click", onClick);
+      }
+
+      return () => { map.removeLayer(layer); };
+    } catch (e) {
+      console.error("Error drawing GeoJSON", e);
+    }
+  }, [data, map, color, weight, fillOpacity, onClick]);
+  return null;
+}
+
 function AutoCenter({
   lat,
   lng,
   talhoes,
+  fazendaGeojson
 }: {
   lat?: number | null;
   lng?: number | null;
   talhoes: TalhaoMarcador[];
+  fazendaGeojson?: any | null;
 }) {
   const map = useMap();
 
   useEffect(() => {
+    if (fazendaGeojson) {
+      try {
+        const geojsonObj = typeof fazendaGeojson === "string" ? JSON.parse(fazendaGeojson) : fazendaGeojson;
+        const layer = L.geoJSON(geojsonObj);
+        const bounds = layer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+          return;
+        }
+      } catch (e) {
+        console.error("FarmMap AutoCenter Error:", e);
+      }
+    }
+
     const talhoesComCoords = talhoes.filter((t) => t.lat && t.lng);
     if (lat && lng) {
       map.setView([lat, lng], 14);
@@ -98,7 +138,7 @@ function AutoCenter({
         { padding: [60, 60], maxZoom: 16 }
       );
     }
-  }, [lat, lng, talhoes, map]);
+  }, [lat, lng, talhoes, map, fazendaGeojson]);
 
   return null;
 }
@@ -107,6 +147,7 @@ export default function FarmMap({
   fazendaNome,
   fazendaId,
   talhoes,
+  fazendaGeojson,
   latCenter,
   lngCenter,
   altura = "420px",
@@ -117,7 +158,7 @@ export default function FarmMap({
   const centroInicial: [number, number] =
     latCenter && lngCenter
       ? [latCenter, lngCenter]
-      : [-14.235, -51.925];
+      : fazendaGeojson ? [-14.235, -51.925] : [-14.235, -51.925]; // Vai ser corrigido pelo AutoCenter logo em seguida
 
   return (
     <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
@@ -147,14 +188,14 @@ export default function FarmMap({
 
       <MapContainer
         center={centroInicial}
-        zoom={latCenter && lngCenter ? 14 : 5}
+        zoom={latCenter && lngCenter || fazendaGeojson ? 14 : 5}
         style={{ height: altura, width: "100%" }}
         zoomControl={false}
       >
         <ZoomControl position="bottomright" />
         <ScaleControl position="bottomleft" imperial={false} />
 
-        <AutoCenter lat={latCenter} lng={lngCenter} talhoes={talhoes} />
+        <AutoCenter lat={latCenter} lng={lngCenter} talhoes={talhoes} fazendaGeojson={fazendaGeojson} />
 
         {/* Satélite */}
         <TileLayer
@@ -162,6 +203,25 @@ export default function FarmMap({
           attribution="© Esri"
           maxZoom={20}
         />
+
+        {/* Limite da Fazenda */}
+        {fazendaGeojson && (
+          <CustomGeoJSONLayer data={fazendaGeojson} color="#ffffff" weight={3} fillOpacity={0.05} />
+        )}
+
+        {/* Limites dos Talhões */}
+        {talhoes.map((t) => 
+          t.bbox_geojson ? (
+            <CustomGeoJSONLayer 
+              key={`poly-${t.id}`}
+              data={t.bbox_geojson} 
+              color="#4ade80" 
+              weight={2} 
+              fillOpacity={0.15} 
+              onClick={() => router.push(`/dashboard/talhoes/${t.id}`)}
+            />
+          ) : null
+        )}
 
         {/* Marcadores de talhões */}
         {talhoesComCoords.map((talhao) => (

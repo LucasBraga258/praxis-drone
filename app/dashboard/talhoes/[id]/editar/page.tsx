@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense, use } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import MapDraw from "@/app/components/map/MapDraw";
 
-function NovoTalhaoForm() {
+function EditarTalhaoForm({ talhaoId }: { talhaoId: string }) {
   const supabase = createClient();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const queryFazendaId = searchParams.get("fazenda_id");
 
-  const [fazendas, setFazendas] = useState<any[]>([]);
-  const [fazendaId, setFazendaId] = useState(queryFazendaId || "");
+  const [talhao, setTalhao] = useState<any>(null);
+  const [fazenda, setFazenda] = useState<any>(null);
+  
   const [nome, setNome] = useState("");
   const [cultura, setCultura] = useState("");
   
@@ -24,50 +23,41 @@ function NovoTalhaoForm() {
   const [center, setCenter] = useState<{lat: number, lng: number} | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  const multiplicadoresArea = {
-    ha: 1,
-    alqueire_sp: 2.42,
-    alqueire_mg: 4.84,
-    alqueire_ba: 9.68,
-    alqueire_norte: 2.72
-  };
-
   useEffect(() => {
-    async function carregarFazendas() {
-      const { data } = await supabase.from("fazendas").select("*").order("nome");
-      if (data) setFazendas(data);
+    async function carregar() {
+      const { data: t } = await supabase.from("talhoes").select("*, fazendas(*)").eq("id", talhaoId).single();
+      if (t) {
+        setTalhao(t);
+        setFazenda(t.fazendas);
+        setNome(t.nome || "");
+        setCultura(t.cultura || "");
+        setAreaValor(t.area_hectares || t.area || "");
+        setGeojson(t.bbox_geojson || t.limites_geojson || null);
+        if (t.latitude && t.longitude) {
+          setCenter({ lat: t.latitude, lng: t.longitude });
+        }
+      }
     }
-    carregarFazendas();
-  }, []);
+    carregar();
+  }, [talhaoId]);
 
-  async function salvarTalhao() {
-    if (!fazendaId) {
-      alert("Por favor, selecione uma fazenda.");
-      return;
-    }
+  async function salvar() {
     if (!nome) {
       alert("Por favor, informe o nome do talhão.");
       return;
     }
-    if (!geojson) {
-      alert("Por favor, desenhe os limites do talhão no mapa.");
-      return;
-    }
 
     setSalvando(true);
-    const areaFinalHa = areaValor ? Number(areaValor) * (multiplicadoresArea as any)[unidadeArea] : null;
+    const areaFinalHa = areaValor ? Number(areaValor) : null;
 
-    const { data: talhao, error } = await supabase.from("talhoes").insert([
-      {
-        fazenda_id: fazendaId,
+    const { error } = await supabase.from("talhoes").update({
         nome,
         cultura,
         area_hectares: areaFinalHa,
         bbox_geojson: geojson,
         latitude: center?.lat,
         longitude: center?.lng
-      },
-    ]).select().single();
+      }).eq("id", talhaoId);
 
     if (error) {
       alert(`Erro ao salvar talhão: ${error.message}`);
@@ -75,24 +65,13 @@ function NovoTalhaoForm() {
       return;
     }
 
-    try {
-      // Dispara o pipeline automático em background
-      fetch("/api/pipeline/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ talhaoId: talhao.id })
-      });
-    } catch (e) {
-      console.error("Erro ao disparar pipeline:", e);
-    }
-
-    router.push(`/dashboard/fazendas/${fazendaId}`);
+    router.push(`/dashboard/talhoes/${talhaoId}`);
     router.refresh();
   }
 
-  // Se o usuário selecionou uma fazenda, passamos o GeoJSON dela como pano de fundo (se existir)
-  const fazendaSelecionada = fazendas.find(f => String(f.id) === String(fazendaId));
-  const existingFazendaGeojson = fazendaSelecionada?.limites_geojson || fazendaSelecionada?.bbox_geojson || null;
+  if (!talhao) return <div>Carregando...</div>;
+
+  const existingFazendaGeojson = fazenda?.limites_geojson || fazenda?.bbox_geojson || null;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}>
@@ -102,22 +81,6 @@ function NovoTalhaoForm() {
         <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 24 }}>Dados do Talhão</h2>
         <div style={{ display: "grid", gap: 20 }}>
           
-          {!queryFazendaId && (
-            <div>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>Fazenda Pertencente</label>
-              <select
-                value={fazendaId}
-                onChange={(e) => setFazendaId(e.target.value)}
-                style={{ width: "100%", padding: "12px 16px", background: "var(--bg-surface)", border: "1px solid var(--bg-border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 14 }}
-              >
-                <option value="">-- Selecione uma Fazenda --</option>
-                {fazendas.map((f) => (
-                  <option key={f.id} value={f.id}>{f.nome}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div>
             <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>Nome ou Número do Talhão</label>
             <input
@@ -155,17 +118,8 @@ function NovoTalhaoForm() {
                   style={{ width: "120px", padding: "12px", background: "var(--bg-surface)", border: "1px solid var(--bg-border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", fontSize: 13 }}
                 >
                   <option value="ha">Hectares</option>
-                  <option value="alqueire_sp">Alqueires (SP/PR/SC - 2.42ha)</option>
-                  <option value="alqueire_mg">Alqueirões (MG/GO/RJ - 4.84ha)</option>
-                  <option value="alqueire_ba">Alqueirão (BA - 9.68ha)</option>
-                  <option value="alqueire_norte">Alqueire do Norte (2.72ha)</option>
                 </select>
               </div>
-              {areaValor && unidadeArea !== "ha" && (
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
-                  Equivale a <strong>{(Number(areaValor) * (multiplicadoresArea as any)[unidadeArea]).toFixed(2)} hectares</strong> no sistema.
-                </div>
-              )}
             </div>
           </div>
 
@@ -177,7 +131,7 @@ function NovoTalhaoForm() {
               Cancelar
             </button>
             <button
-              onClick={salvarTalhao}
+              onClick={salvar}
               disabled={salvando}
               style={{ padding: "12px 24px", background: "var(--praxis-green-600)", border: "none", color: "#fff", borderRadius: "var(--radius-md)", fontWeight: 700, cursor: "pointer", opacity: salvando ? 0.7 : 1 }}
             >
@@ -200,14 +154,13 @@ function NovoTalhaoForm() {
           </div>
         </div>
 
-        {/* Chaveia o MapDraw pelo fazendaId para forçar re-render com novo existingGeojson quando trocar de fazenda */}
         <MapDraw 
-          key={fazendaId}
           height="500px" 
           drawType="polygon" 
-          existingGeojson={existingFazendaGeojson}
-          onDrawComplete={(geojson: any, center: {lat: number, lng: number}, areaHa?: number) => {
-            setGeojson(geojson);
+          existingGeojson={geojson ? undefined : existingFazendaGeojson}
+          initialGeojson={geojson}
+          onDrawComplete={(novoGeojson: any, center: {lat: number, lng: number}, areaHa?: number) => {
+            setGeojson(novoGeojson);
             setCenter(center);
             if (areaHa && areaHa > 0) {
               setAreaValor(areaHa.toFixed(2));
@@ -219,7 +172,7 @@ function NovoTalhaoForm() {
         {geojson && (
           <div style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--praxis-green-500)" }}></div>
-            Polígono demarcado com sucesso!
+            Polígono demarcado!
           </div>
         )}
       </div>
@@ -228,7 +181,9 @@ function NovoTalhaoForm() {
   );
 }
 
-export default function NovoTalhaoPage() {
+export default function EditarTalhaoPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  
   return (
     <main className="praxis-content" style={{ minHeight: "100vh", background: "var(--bg-base)" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -239,18 +194,18 @@ export default function NovoTalhaoPage() {
             {" / "}
             <Link href="/dashboard/talhoes" style={{ color: "var(--text-muted)", textDecoration: "none" }}>Talhões</Link>
             {" / "}
-            <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>Novo Talhão</span>
+            <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>Editar</span>
           </div>
           <h1 style={{ fontSize: 32, fontWeight: 800, color: "var(--text-primary)" }}>
-            🌱 Cadastrar Novo Talhão
+            ✏️ Editar Talhão
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 15, marginTop: 4 }}>
-            Defina a área de plantio e registre o polígono no mapa.
+            Atualize as informações do talhão ou demarque sua área no mapa.
           </p>
         </div>
 
         <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Carregando formulário...</div>}>
-          <NovoTalhaoForm />
+          <EditarTalhaoForm talhaoId={id} />
         </Suspense>
 
       </div>

@@ -17,6 +17,8 @@ import {
   ZoomControl,
   ScaleControl,
   useMap,
+  LayersControl,
+  FeatureGroup
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -37,6 +39,10 @@ export interface MonitoramentoMarcador {
   status?: string;
   ortomosaicoImgUrl?: string | null;
   ndviImgUrl?: string | null;
+  variImgUrl?: string | null;
+  falsaCorImgUrl?: string | null;
+  dsmImgUrl?: string | null;
+  dtmImgUrl?: string | null;
   lat: number;
   lng: number;
 }
@@ -46,6 +52,9 @@ interface TalhaoMapProps {
   talhaoNome: string;
   monitoramentos: MonitoramentoMarcador[];
   altura?: string;
+  talhaoGeojson?: any;
+  talhaoLat?: number | null;
+  talhaoLng?: number | null;
 }
 
 function monitoramentoIcon(status?: string, index?: number) {
@@ -70,10 +79,46 @@ function monitoramentoIcon(status?: string, index?: number) {
   });
 }
 
-function AutoCenter({ monitoramentos }: { monitoramentos: MonitoramentoMarcador[] }) {
+function CustomGeoJSONLayer({ data, color, weight, fillOpacity, onClick }: { data: any, color: string, weight: number, fillOpacity: number, onClick?: () => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!data) return;
+    try {
+      const geojsonObj = typeof data === "string" ? JSON.parse(data) : data;
+      const layer = L.geoJSON(geojsonObj, {
+        style: { color, weight, opacity: 0.8, fillOpacity, dashArray: onClick ? undefined : "4 4" }
+      }).addTo(map);
+
+      if (onClick) {
+        layer.on("click", onClick);
+      }
+
+      return () => { map.removeLayer(layer); };
+    } catch (e) {
+      console.error("Error drawing GeoJSON", e);
+    }
+  }, [data, map, color, weight, fillOpacity, onClick]);
+  return null;
+}
+
+function AutoCenter({ monitoramentos, talhaoGeojson }: { monitoramentos: MonitoramentoMarcador[], talhaoGeojson?: any }) {
   const map = useMap();
 
   useEffect(() => {
+    if (talhaoGeojson) {
+      try {
+        const geojsonObj = typeof talhaoGeojson === "string" ? JSON.parse(talhaoGeojson) : talhaoGeojson;
+        const layer = L.geoJSON(geojsonObj);
+        const bounds = layer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+          return;
+        }
+      } catch (e) {
+        console.error("AutoCenter Error on GeoJSON:", e);
+      }
+    }
+
     if (monitoramentos.length === 0) return;
 
     const lats = monitoramentos.map((m) => m.lat);
@@ -90,7 +135,7 @@ function AutoCenter({ monitoramentos }: { monitoramentos: MonitoramentoMarcador[
         { padding: [60, 60], maxZoom: 17 }
       );
     }
-  }, [monitoramentos, map]);
+  }, [monitoramentos, map, talhaoGeojson]);
 
   return null;
 }
@@ -100,13 +145,19 @@ export default function TalhaoMap({
   talhaoNome,
   monitoramentos,
   altura = "380px",
+  talhaoGeojson,
+  talhaoLat,
+  talhaoLng,
 }: TalhaoMapProps) {
   const router = useRouter();
   const temMonitoramentos = monitoramentos.length > 0;
+  
   const centroInicial: [number, number] =
     temMonitoramentos
       ? [monitoramentos[0].lat, monitoramentos[0].lng]
-      : [-14.235, -51.925];
+      : talhaoLat && talhaoLng 
+        ? [talhaoLat, talhaoLng] 
+        : [-14.235, -51.925];
 
   return (
     <div
@@ -139,7 +190,7 @@ export default function TalhaoMap({
         <div style={{ fontSize: 11, color: "#94a3b8" }}>
           {monitoramentos.length > 0
             ? `${monitoramentos.length} monitoramento${monitoramentos.length !== 1 ? "s" : ""} no mapa`
-            : "Sem coordenadas GPS cadastradas"}
+            : talhaoGeojson ? "Área demarcada no mapa" : "Sem coordenadas GPS cadastradas"}
         </div>
       </div>
 
@@ -167,21 +218,108 @@ export default function TalhaoMap({
 
       <MapContainer
         center={centroInicial}
-        zoom={temMonitoramentos ? 15 : 5}
+        zoom={temMonitoramentos || (talhaoLat && talhaoLng) ? 15 : 5}
         style={{ height: altura, width: "100%" }}
         zoomControl={false}
       >
         <ZoomControl position="bottomright" />
         <ScaleControl position="bottomleft" imperial={false} />
 
-        <AutoCenter monitoramentos={monitoramentos} />
+        <AutoCenter monitoramentos={monitoramentos} talhaoGeojson={talhaoGeojson} />
 
-        {/* Satélite */}
-        <TileLayer
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          attribution="© Esri"
-          maxZoom={20}
-        />
+        <LayersControl position="topright" collapsed={false}>
+          {/* Base Maps */}
+          <LayersControl.BaseLayer checked name="🌍 Satélite RGB">
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="© Esri"
+              maxZoom={20}
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="🛣️ Mapa de Ruas">
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="© OpenStreetMap"
+              maxZoom={20}
+            />
+          </LayersControl.BaseLayer>
+
+          {/* Último Monitoramento Overlays */}
+          {temMonitoramentos && monitoramentos[0].ndviImgUrl && (
+            <LayersControl.Overlay name="🟢 Último NDVI">
+              <TileLayer url={monitoramentos[0].ndviImgUrl.replace("https://stac.cogeo.org/", "https://stac.cogeo.org/")} maxZoom={20} opacity={0.85} maxNativeZoom={16} />
+            </LayersControl.Overlay>
+          )}
+          
+          {temMonitoramentos && monitoramentos[0].variImgUrl && (
+            <LayersControl.Overlay name="🟡 Último VARI">
+              <TileLayer url={monitoramentos[0].variImgUrl} maxZoom={20} opacity={0.85} maxNativeZoom={16} />
+            </LayersControl.Overlay>
+          )}
+
+          {temMonitoramentos && monitoramentos[0].falsaCorImgUrl && (
+            <LayersControl.Overlay name="🔴 Última Falsa Cor">
+              <TileLayer url={monitoramentos[0].falsaCorImgUrl} maxZoom={20} opacity={1} maxNativeZoom={16} />
+            </LayersControl.Overlay>
+          )}
+
+          {/* Overlays */}
+          {talhaoGeojson && (
+            <LayersControl.Overlay checked name="Polígono do Talhão">
+              <FeatureGroup>
+                <CustomGeoJSONLayer data={talhaoGeojson} color="#4ade80" weight={3} fillOpacity={0.05} />
+              </FeatureGroup>
+            </LayersControl.Overlay>
+          )}
+
+          {/* Dinamicamente adicionar o último NDVI/VARI se existir */}
+          {temMonitoramentos && (() => {
+            // Pegar as URLs do monitoramento mais recente (índice 0)
+            const latest = monitoramentos[0];
+            const renderLayer = (url: string) => {
+              if (url.includes("{z}")) {
+                const fixedUrl = url.replace("stac.cogeo.org", "titiler.xyz/stac");
+                return <TileLayer url={fixedUrl} maxZoom={20} maxNativeZoom={16} />;
+              }
+              return null;
+            };
+
+            return (
+              <>
+                {latest.ndviImgUrl && latest.ndviImgUrl.includes("{z}") && (
+                  <LayersControl.Overlay name="Último NDVI (Saúde)">
+                    {renderLayer(latest.ndviImgUrl)}
+                  </LayersControl.Overlay>
+                )}
+                {latest.variImgUrl && latest.variImgUrl.includes("{z}") && (
+                  <LayersControl.Overlay name="Último VARI (Vigor)">
+                    {renderLayer(latest.variImgUrl)}
+                  </LayersControl.Overlay>
+                )}
+                {latest.falsaCorImgUrl && latest.falsaCorImgUrl.includes("{z}") && (
+                  <LayersControl.Overlay checked name="Última Falsa Cor / RGB (Satélite)">
+                    {renderLayer(latest.falsaCorImgUrl)}
+                  </LayersControl.Overlay>
+                )}
+                {latest.ortomosaicoImgUrl && latest.ortomosaicoImgUrl.includes("{z}") && !latest.ortomosaicoImgUrl.includes("vari") && (
+                  <LayersControl.Overlay name="Último Ortomosaico">
+                    {renderLayer(latest.ortomosaicoImgUrl)}
+                  </LayersControl.Overlay>
+                )}
+                {latest.dsmImgUrl && latest.dsmImgUrl.includes("{z}") && (
+                  <LayersControl.Overlay name="Modelo de Superfície (DSM)">
+                    {renderLayer(latest.dsmImgUrl)}
+                  </LayersControl.Overlay>
+                )}
+                {latest.dtmImgUrl && latest.dtmImgUrl.includes("{z}") && (
+                  <LayersControl.Overlay name="Modelo de Terreno (DTM)">
+                    {renderLayer(latest.dtmImgUrl)}
+                  </LayersControl.Overlay>
+                )}
+              </>
+            );
+          })()}
+        </LayersControl>
 
         {/* Marcadores de monitoramentos */}
         {monitoramentos.map((m, index) => (

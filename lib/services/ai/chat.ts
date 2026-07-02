@@ -32,7 +32,7 @@ export async function buscarContextoPropriedade({
     if (fazendaId) {
       const contextoFazenda = await DashboardDBService.getContextoFazenda(fazendaId);
       if (contextoFazenda) {
-        contexto += `**Fazenda selecionada:** ${contextoFazenda.fazenda.nome} (${contextoFazenda.fazenda.municipio}-${contextoFazenda.fazenda.uf})\n`;
+        contexto += `**Fazenda selecionada:** ${contextoFazenda.fazenda.nome} (${contextoFazenda.fazenda.cidade}-${contextoFazenda.fazenda.estado})\n`;
         contexto += `Área total: ${contextoFazenda.fazenda.area_ha || 0} ha. Cultura principal: ${contextoFazenda.fazenda.cultura || "—"}.\n`;
         contexto += `Status de Saúde: ${contextoFazenda.fazenda.status_saude || "—"}.\n`;
         contexto += `Possui ${contextoFazenda.talhoes.length} talhões cadastrados.\n`;
@@ -52,7 +52,8 @@ export async function buscarContextoPropriedade({
       contexto += `**Visão Geral do Sistema Praxis**\n`;
       contexto += `- Total de Clientes: ${contextoGeral.clientes.length}\n`;
       contexto += `- Total de Fazendas: ${contextoGeral.fazendas.length}\n`;
-      contexto += `- Total de Missões de Drone: ${contextoGeral.totalMissoes}\n\n`;
+      contexto += `- Área Total Monitorada: ${contextoGeral.areaTotal.toFixed(2)} ha\n`;
+      contexto += `- Total de Missões de Drone/Satélite: ${contextoGeral.totalMissoes}\n\n`;
     }
 
     return contexto || "Nenhum dado específico selecionado. Responda de forma geral sobre a plataforma Praxis.";

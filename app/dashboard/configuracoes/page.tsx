@@ -88,7 +88,7 @@ export default function ConfiguracoesPage() {
             <div className="text-xs text-slate-500">
               <strong>Providers Suportados:</strong> gemini, ollama, mock.
               <br />
-              Timeout de fallback ativo: 20 segundos.
+              Timeout de fallback ativo: 60 segundos.
             </div>
           </div>
         </Card>

@@ -28,9 +28,14 @@ interface Etapa {
 }
 
 const ICONES_ETAPA: Record<string, string> = {
+  // Drone
   "Upload & Verificação": "📤",
   "Diagnóstico de Nuvem": "🔍",
   "OpenDroneMap (Fotogrametria)": "⚙️",
+  // Sentinel
+  "Busca de Imagens (Sentinel-2)": "🛰️",
+  "Geração de Índices (TiTiler)": "🗺️",
+  // Ambos
   "IA Praxis (Anomalias)": "🧠",
   "Relatório & Entrega": "📄",
 };

@@ -88,21 +88,31 @@ export default async function MissaoPage({
             projetoId={Number(id)}
             ortomosaicoUrl={projeto.ortomosaico_img_url ?? null}
             ndviUrl={projeto.ndvi_img_url ?? null}
+            variUrl={projeto.vari_img_url ?? null}
+            falsaCorUrl={projeto.falsa_cor_img_url ?? null}
           />
         </div>
 
-        {/* 3. Pipeline de Processamento */}
-        <div style={{ marginBottom: 24 }}>
-          <PipelineProjeto projetoId={Number(id)} />
-        </div>
+        {projeto.fonte_captura !== 'Satelite' && (
+          <>
+            {/* 3. Pipeline de Processamento */}
+            <div style={{ marginBottom: 24 }}>
+              <PipelineProjeto projetoId={Number(id)} />
+            </div>
+          </>
+        )}
 
         {/* 3.5 Relatório Mágico da IA (Se existir) */}
         <MissionAIReport markdown={projeto.relatorio_ia} />
 
-        {/* 4. Upload de Imagens (só se ainda não tiver fotos OU se o user quiser mais) */}
-        <div style={{ marginBottom: 24 }}>
-          <MissionUpload projetoId={Number(id)} />
-        </div>
+        {projeto.fonte_captura !== 'Satelite' && (
+          <>
+            {/* 4. Upload de Imagens (só se ainda não tiver fotos OU se o user quiser mais) */}
+            <div style={{ marginBottom: 24 }}>
+              <MissionUpload projetoId={Number(id)} />
+            </div>
+          </>
+        )}
 
         {/* 5. Indicadores Agronômicos */}
         <MissionIndicators
@@ -111,10 +121,14 @@ export default async function MissaoPage({
           baixoVigor={projeto.baixo_vigor || 0}
         />
 
-        {/* 6. Galeria de Imagens com EXIF */}
-        <div style={{ marginBottom: 24 }}>
-          <MissionGallery projetoId={Number(id)} />
-        </div>
+        {projeto.fonte_captura !== 'Satelite' && (
+          <>
+            {/* 6. Galeria de Imagens com EXIF */}
+            <div style={{ marginBottom: 24 }}>
+              <MissionGallery projetoId={Number(id)} />
+            </div>
+          </>
+        )}
 
         {/* 7. Produtos Gerados */}
         <MissionProducts
@@ -127,13 +141,21 @@ export default async function MissaoPage({
           ortomosaicoImgUrl={projeto.ortomosaico_img_url}
           ndviImgUrl={projeto.ndvi_img_url}
           elevacaoImgUrl={projeto.elevacao_img_url}
+          dsmImgUrl={projeto.dsm_img_url}
+          dtmImgUrl={projeto.dtm_img_url}
+          fonte_captura={projeto.fonte_captura}
+          relatorioIa={projeto.relatorio_ia}
         />
 
-        {/* 8. Arquivos + Ações */}
-        <div className="grid lg:grid-cols-2 gap-6" style={{ marginBottom: 24 }}>
-          <MissionFiles arquivos={projeto.arquivos_projeto} />
-          <MissionActions projetoId={projeto.id} />
-        </div>
+        {projeto.fonte_captura !== 'Satelite' && (
+          <>
+            {/* 8. Arquivos + Ações */}
+            <div className="grid lg:grid-cols-2 gap-6" style={{ marginBottom: 24 }}>
+              <MissionFiles arquivos={projeto.arquivos_projeto} />
+              <MissionActions projetoId={projeto.id} />
+            </div>
+          </>
+        )}
 
         {/* 9. Intervenções */}
         <MissionInterventions intervencoes={projeto.intervencoes} />
@@ -154,6 +176,7 @@ export default async function MissaoPage({
           alturaVoo={projeto.altura_voo}
           sobreposicaoFrontal={projeto.sobreposicao_frontal}
           sobreposicaoLateral={projeto.sobreposicao_lateral}
+          fonteCaptura={projeto.fonte_captura}
         />
 
       </div>

@@ -121,7 +121,28 @@ export default function MissionHeader({ projeto }: MissionHeaderProps) {
           </div>
 
           {/* Ações */}
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+            {projeto.talhoes?.id && (
+              <Link
+                href={`/dashboard/talhoes/${projeto.talhoes.id}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 16px",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--bg-border)",
+                  borderRadius: "var(--radius-md)",
+                  color: "var(--text-primary)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  transition: "all 0.15s",
+                }}
+              >
+                ⬅️ Voltar ao Talhão
+              </Link>
+            )}
             <Link
               href={`/dashboard/projetos/${projeto.id}/mapa`}
               style={{

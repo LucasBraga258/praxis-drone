@@ -8,6 +8,10 @@ interface MissionProductsProps {
   ortomosaicoImgUrl: string | null;
   ndviImgUrl: string | null;
   elevacaoImgUrl: string | null;
+  dsmImgUrl?: string | null;
+  dtmImgUrl?: string | null;
+  fonte_captura?: string;
+  relatorioIa?: string | null;
 }
 
 interface ProductCardProps {
@@ -15,9 +19,10 @@ interface ProductCardProps {
   descricao: string;
   url: string | null;
   icone: string;
+  projetoId?: number;
 }
 
-function ProductCard({ nome, descricao, url, icone }: ProductCardProps) {
+function ProductCard({ nome, descricao, url, icone, projetoId }: ProductCardProps) {
   const disponivel = !!url;
 
   return (
@@ -51,8 +56,8 @@ function ProductCard({ nome, descricao, url, icone }: ProductCardProps) {
 
       {disponivel && (
         <a
-          href={url!}
-          target="_blank"
+          href={(url!.includes("{z}") || url!.includes("%7Bz%7D")) ? `/dashboard/projetos/${projetoId || window.location.pathname.split("/").pop()}/mapa` : url!.replace("stac.cogeo.org", "titiler.xyz/stac")}
+          target={(url!.includes("{z}") || url!.includes("%7Bz%7D")) ? "_self" : "_blank"}
           rel="noopener noreferrer"
           className="
             inline-flex items-center gap-2
@@ -78,9 +83,14 @@ export default function MissionProducts({
   ortomosaicoImgUrl,
   ndviImgUrl,
   elevacaoImgUrl,
+  dsmImgUrl,
+  dtmImgUrl,
+  relatorioIa,
+  ...props
 }: MissionProductsProps & { projetoId: number, camera?: string }) {
 
   const isRGB = camera?.toUpperCase().includes("RGB") && !camera?.toUpperCase().includes("MULTISPECTRAL");
+  const isDrone = props.fonte_captura === "Drone";
 
   const produtos: ProductCardProps[] = [
     {
@@ -95,12 +105,20 @@ export default function MissionProducts({
       url: ndviUrl || ndviImgUrl,
       icone: "🌿",
     },
-    {
-      nome: "Modelo de Elevação",
-      descricao: "DSM / DTM do terreno mapeado",
-      url: elevacaoImgUrl,
-      icone: "⛰️",
-    },
+    ...(isDrone ? [
+      {
+        nome: "Superfície (DSM)",
+        descricao: "Modelo topográfico da superfície e alvos",
+        url: elevacaoImgUrl || dsmImgUrl || null,
+        icone: "⛰️",
+      },
+      {
+        nome: "Terreno (DTM)",
+        descricao: "Modelo numérico de elevação do solo",
+        url: dtmImgUrl || null,
+        icone: "🕳️",
+      }
+    ] : []),
     {
       nome: "WebGIS",
       descricao: "Visualização interativa com camadas",
@@ -110,7 +128,7 @@ export default function MissionProducts({
     {
       nome: "Relatório PDF",
       descricao: "Relatório técnico completo da missão",
-      url: pdfUrl,
+      url: pdfUrl || (relatorioIa ? `/dashboard/projetos/${projetoId}/relatorio` : null),
       icone: "📄",
     },
   ];
@@ -129,7 +147,7 @@ export default function MissionProducts({
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {produtos.map((produto) => (
-          <ProductCard key={produto.nome} {...produto} />
+          <ProductCard key={produto.nome} {...produto} projetoId={projetoId} />
         ))}
       </div>
     </Card>

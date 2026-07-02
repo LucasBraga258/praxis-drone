@@ -2,6 +2,10 @@ import { createClient } from "../supabase/client";
 
 const supabase = createClient();
 export async function buscarPipelineProjeto(projetoId: number) {
+  // Busca projeto para identificar o tipo
+  const { data: projeto } = await supabase.from("projetos").select("fonte_dados").eq("id", projetoId).single();
+  const isSentinel = projeto?.fonte_dados === "sentinel";
+
   // Busca a situação atual da Máquina de Estados (Sprint 6)
   const { data, error } = await supabase
     .from("mission_jobs")
@@ -12,8 +16,13 @@ export async function buscarPipelineProjeto(projetoId: number) {
     
   const job = data?.[0];
 
-  // Mapeamento visual das etapas
-  const etapasDefinidas = [
+  // Mapeamento visual das etapas dependendo da fonte
+  const etapasDefinidas = isSentinel ? [
+    { key: "BUSCA_IMAGENS", label: "Busca de Imagens (Sentinel-2)", ordem: 1 },
+    { key: "GERACAO_INDICES", label: "Geração de Índices (TiTiler)", ordem: 2 },
+    { key: "INTELIGENCIA_ARTIFICIAL", label: "IA Praxis (Anomalias)", ordem: 3 },
+    { key: "RELATORIO_PDF", label: "Relatório & Entrega", ordem: 4 },
+  ] : [
     { key: "UPLOAD_CONCLUIDO", label: "Upload & Verificação", ordem: 1 },
     { key: "HEALTH_CHECK", label: "Diagnóstico de Nuvem", ordem: 2 },
     { key: "NODEODM", label: "OpenDroneMap (Fotogrametria)", ordem: 3 },
